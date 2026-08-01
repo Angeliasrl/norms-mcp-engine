@@ -64,6 +64,15 @@ export function renderClaimMap() {
         );
       }
       if (c.precondition) bits.push(`**Precondition:** ${c.precondition}`);
+      if (c.state === 'O') {
+        // An O row's value is that a third party can resolve it; the evidence
+        // fields must therefore appear in the generated map, not only in data.
+        bits.push(
+          `**Evidence:** ${c.evidence_ref} · artifact sha256 \`${c.artifact_sha256}\`` +
+            ` · observed ${c.observed_at} · ${c.observer} · scope: ${c.scope}` +
+            ` · ${c.evidence_class} · revalidate by ${c.revalidate_at}`
+        );
+      }
       if (c.note) bits.push(c.note);
       L.push(
         `| ${c.id} | ${esc(c.claim)} | **${c.state}** | ${c.level ?? '—'} | ${esc(bits.join(' '))} |`

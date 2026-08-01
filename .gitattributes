@@ -1,0 +1,5 @@
+# The suite compares CLAIM_MAP.md byte-for-byte against the generator
+# output, so a checkout must not translate line endings. Without this, a
+# clone on Windows with core.autocrlf=true materialises CRLF and the
+# drift check fails spuriously.
+* text=auto eol=lf

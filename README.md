@@ -1,6 +1,10 @@
 # norms-mcp-engine
 
-**Version 0.1.0 · experimental prerelease · companion: `CLAIM_MAP.md`**
+**Experimental prerelease. Engine only. Not an MCP server. No I/O, network,
+persistence or transport.**
+
+Version 0.1.0 · claim-by-claim evidence: [`CLAIM_MAP.md`](./CLAIM_MAP.md) ·
+not independently verified.
 
 The admissibility model and claim-map linter, as pure functions. No I/O, no
 network, no transport.
@@ -258,8 +262,11 @@ nothing.
 
 ## Licence
 
-MIT — Copyright (c) 2026 Francesco Riva — Angelia srl SB.
+Apache License 2.0 — Copyright 2026 Francesco Riva. See `LICENSE` for the full
+text. Versions up to commit `83438ef` were published under MIT; this and later
+revisions are under Apache-2.0.
 
-The software and `README.md` are under MIT. `CLAIM_MAP.md` may be copied and
-quoted freely, but a modified version should not circulate under the same name:
-its value lies in not having been altered after the fact. See `LICENSE`.
+`CLAIM_MAP.md` is under the same licence. A practical request, not a licence
+term: it is a record of what was claimed and when, so a modified copy should
+not circulate under the same name — its value lies in not having been altered
+after the fact.

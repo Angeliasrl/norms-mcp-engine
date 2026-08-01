@@ -25,3 +25,5 @@ jobs:
         run: node test/suite.mjs
       - name: claim map is in sync with its data
         run: node scripts/build-claimmap.mjs --check
+      - name: pack (dry run)
+        run: npm pack --dry-run

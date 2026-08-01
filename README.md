@@ -1,6 +1,10 @@
 # norms-mcp-engine
 
-**Version 0.1.0 · experimental prerelease · companion: `CLAIM_MAP.md`**
+**Experimental prerelease. Engine only. Not an MCP server. No I/O, network,
+persistence or transport.**
+
+Version 0.1.0 · claim-by-claim evidence: [`CLAIM_MAP.md`](./CLAIM_MAP.md) ·
+not independently verified.
 
 The admissibility model and claim-map linter, as pure functions. No I/O, no
 network, no transport.

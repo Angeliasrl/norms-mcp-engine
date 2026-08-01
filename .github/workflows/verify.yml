@@ -1,0 +1,27 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # No dependencies, so nothing to install. No fallback, so a failure
+      # here is a failure rather than a silently degraded run.
+      - name: suite
+        run: node test/suite.mjs
+      - name: claim map is in sync with its data
+        run: node scripts/build-claimmap.mjs --check

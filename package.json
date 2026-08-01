@@ -1,0 +1,36 @@
+{
+  "name": "norms-mcp-engine",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Admissibility model and claim-map linter for normative corpora. Pure functions, no I/O, no transport. This is the engine only \u2014 not an MCP server.",
+  "keywords": [
+    "admissibility",
+    "provenance",
+    "normative",
+    "claim-map",
+    "canonicalisation"
+  ],
+  "exports": {
+    "./model": "./src/model.js",
+    "./canonical": "./src/canonical.js",
+    "./claimmap": "./src/claimmap.js"
+  },
+  "scripts": {
+    "test": "node test/suite.mjs && node scripts/build-claimmap.mjs --check",
+    "build:claimmap": "node scripts/build-claimmap.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "files": [
+    "src/",
+    "test/",
+    "scripts/",
+    "claims.mjs",
+    "README.md",
+    "CLAIM_MAP.md",
+    "LICENSE"
+  ],
+  "author": "Francesco Riva \u2014 Angelia srl SB"
+}

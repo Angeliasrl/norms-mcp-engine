@@ -1,6 +1,10 @@
 import {
   ORIGIN, VERIFICATION, CURRENCY, AUTHORITY, EXPIRY, EXPIRY_POLICY,
   validateEntry, eligibleAsGround, admissibleFor, revalidate, evaluateExpiry,
+  RELIANCE_PURPOSE, APPLICABILITY_CONDITION_STATUS, PROVISION_SEGMENTATION_STATUS,
+  isValidCivilDate, validateEffectiveInterval, validateApplicability,
+  validateApplicabilityConditions, validateProvisionSegmentation,
+  assessRelianceForPurpose,
 } from '../src/model.js';
 import {
   byteLength, canonicaliseContent, canonicalBytes, corpusDigest,
@@ -146,6 +150,277 @@ t('declared dimension with no answer in context does not match', () => {
   ok(!admissibleFor(e, {}).admissible);
 });
 
+console.log('\nnorms-mcp — temporal purpose and provision applicability\n');
+
+const temporalBase = (over = {}) => base({
+  key: 'SYNTHETIC_PROVISION',
+  value: 'Synthetic provision marker; not interpreted by the engine.',
+  scope: {
+    subject: ['HIGH_RISK_AI_SYSTEM'],
+    jurisdiction: ['EU'],
+    applicable_operations: ['COMPLIANCE_ASSESSMENT'],
+  },
+  effective_interval: { from: '2024-08-01' },
+  normative_unit: {
+    instrument: 'Synthetic Regulation 2024/0001',
+    provision: 'Chapter III, synthetic unit',
+    classification_basis: 'Synthetic classification basis',
+  },
+  applicability: { from: '2025-02-02' },
+  applicability_conditions: {
+    status: APPLICABILITY_CONDITION_STATUS.NONE,
+    evidence: [],
+  },
+  provision_segmentation: {
+    status: PROVISION_SEGMENTATION_STATUS.SEGMENTED,
+  },
+  ...over,
+});
+
+const currentRequest = (entry, over = {}) => ({
+  entry,
+  context: {
+    subject: ['HIGH_RISK_AI_SYSTEM'],
+    jurisdiction: ['EU'],
+    applicable_operations: ['COMPLIANCE_ASSESSMENT'],
+  },
+  reliance_purpose: RELIANCE_PURPOSE.CURRENT_OPERATIONAL,
+  as_of: '2026-08-03',
+  ...over,
+});
+
+t('strict civil date parser accepts dates and rejects timestamps or normalised dates', () => {
+  ok(isValidCivilDate('2026-08-03'));
+  ok(!isValidCivilDate('2026-08-03T00:00:00Z'));
+  ok(!isValidCivilDate('2026-02-30'));
+});
+
+t('effective and applicability intervals reject inverted bounds', () => {
+  throws(
+    () => validateEffectiveInterval({ from: '2026-01-02', until_exclusive: '2026-01-01' }),
+    'EFFECTIVE_INTERVAL_ORDER_INVALID'
+  );
+  throws(
+    () => validateApplicability({ from: '2026-01-02', until_exclusive: '2026-01-01' }),
+    'APPLICABILITY_ORDER_INVALID'
+  );
+});
+
+t('provision applicable since 2025 passes current operational in 2026', () => {
+  const r = assessRelianceForPurpose(currentRequest(temporalBase())).purpose_assessment;
+  ok(r.admissible);
+  ok(r.authorizes_current_operational);
+  eq(r.applicability_known, true);
+  eq(r.applicability_matches, true);
+  eq(r.requires_provision_segmentation, false);
+});
+
+t('same current instrument with a provision applicable only in 2028 fails in 2026', () => {
+  const entry = temporalBase({ applicability: { from: '2028-08-02' } });
+  const r = assessRelianceForPurpose(currentRequest(entry)).purpose_assessment;
+  eq(r.admissible, false);
+  eq(r.applicability_known, true);
+  eq(r.applicability_matches, false);
+  eq(r.authorizes_current_operational, false);
+  ok(r.blocking.includes('applicability.mismatch'));
+});
+
+t('whole staggered instrument fails closed until provision segmentation', () => {
+  const entry = temporalBase({
+    normative_unit: { instrument: 'Synthetic Regulation 2024/0001' },
+    provision_segmentation: { status: PROVISION_SEGMENTATION_STATUS.REQUIRED },
+  });
+  const r = assessRelianceForPurpose(currentRequest(entry)).purpose_assessment;
+  eq(r.requires_provision_segmentation, true);
+  eq(r.admissible, false);
+  eq(r.authorizes_current_operational, false);
+});
+
+t('current operational without applicability is the explicit P0 regression', () => {
+  const entry = temporalBase(); delete entry.applicability;
+  const r = assessRelianceForPurpose(currentRequest(entry)).purpose_assessment;
+  eq(r.applicability_known, false);
+  eq(r.admissible, false);
+  eq(r.authorizes_current_operational, false);
+});
+
+t('conditions NONE and SATISFIED with structured evidence can proceed', () => {
+  const none = assessRelianceForPurpose(currentRequest(temporalBase())).purpose_assessment;
+  ok(none.conditions_known && none.conditions_satisfied && none.admissible);
+  const satisfied = temporalBase({
+    applicability_conditions: {
+      status: APPLICABILITY_CONDITION_STATUS.SATISFIED,
+      evidence: [{ type: 'DOCUMENT_REFERENCE', reference: 'Synthetic record section 2' }],
+    },
+  });
+  const r = assessRelianceForPurpose(currentRequest(satisfied)).purpose_assessment;
+  ok(r.conditions_known && r.conditions_satisfied && r.admissible);
+});
+
+t('SATISFIED without structured evidence is rejected', () => {
+  throws(
+    () => validateApplicabilityConditions({
+      status: APPLICABILITY_CONDITION_STATUS.SATISFIED,
+      evidence: [],
+    }),
+    'APPLICABILITY_CONDITIONS_EVIDENCE_REQUIRED'
+  );
+});
+
+t('NOT_SATISFIED, UNKNOWN, and absent conditions fail current operational', () => {
+  for (const status of [
+    APPLICABILITY_CONDITION_STATUS.NOT_SATISFIED,
+    APPLICABILITY_CONDITION_STATUS.UNKNOWN,
+  ]) {
+    const entry = temporalBase({ applicability_conditions: { status, evidence: [] } });
+    const r = assessRelianceForPurpose(currentRequest(entry)).purpose_assessment;
+    eq(r.admissible, false, status);
+    eq(r.authorizes_current_operational, false, status);
+  }
+  const absent = temporalBase(); delete absent.applicability_conditions;
+  const r = assessRelianceForPurpose(currentRequest(absent)).purpose_assessment;
+  eq(r.conditions_known, false);
+  eq(r.admissible, false);
+});
+
+t('applicability interval is start-inclusive and end-exclusive', () => {
+  const interval = { from: '2025-02-02', until_exclusive: '2026-08-03' };
+  const atStart = assessRelianceForPurpose(currentRequest(
+    temporalBase({ applicability: interval }), { as_of: '2025-02-02' }
+  )).purpose_assessment;
+  const atEnd = assessRelianceForPurpose(currentRequest(
+    temporalBase({ applicability: interval }), { as_of: '2026-08-03' }
+  )).purpose_assessment;
+  ok(atStart.applicability_matches && atStart.admissible);
+  eq(atEnd.applicability_matches, false);
+  eq(atEnd.admissible, false);
+});
+
+t('comparative tolerates stale and missing effective interval with known authority and scope', () => {
+  const entry = temporalBase({ currency: CURRENCY.STALE, expiry_status: EXPIRY.EXPIRED });
+  delete entry.effective_interval;
+  const r = assessRelianceForPurpose({
+    entry,
+    context: currentRequest(entry).context,
+    reliance_purpose: RELIANCE_PURPOSE.COMPARATIVE_ANALYSIS,
+  }).purpose_assessment;
+  ok(r.admissible);
+  eq(r.temporal_known, false);
+  eq(r.authorizes_current_operational, false);
+  eq(r.authorizes_historical_as_of, false);
+});
+
+t('comparative fails for unknown authority, missing scope, or unconfirmed verification', () => {
+  const variants = [
+    temporalBase({ authority_status: AUTHORITY.UNKNOWN }),
+    (() => { const e = temporalBase(); delete e.scope; return e; })(),
+    (() => {
+      const e = temporalBase({ verification_state: VERIFICATION.UNCONFIRMED });
+      delete e.ratification;
+      return e;
+    })(),
+  ];
+  for (const entry of variants) {
+    const r = assessRelianceForPurpose({
+      entry,
+      context: currentRequest(entry).context,
+      reliance_purpose: RELIANCE_PURPOSE.COMPARATIVE_ANALYSIS,
+    }).purpose_assessment;
+    eq(r.admissible, false);
+  }
+});
+
+t('purpose-aware scope is unknown when declared context dimensions are unanswered', () => {
+  const entry = temporalBase();
+  const r = assessRelianceForPurpose(currentRequest(entry, {
+    context: { subject: ['HIGH_RISK_AI_SYSTEM'] },
+  })).purpose_assessment;
+  eq(r.scope_known, false);
+  eq(r.scope_matches, null);
+  eq(r.admissible, false);
+  eq(r.authorizes_current_operational, false);
+});
+
+t('historical artifact inside its effective interval passes but never authorizes current use', () => {
+  const entry = temporalBase({ currency: CURRENCY.STALE, expiry_status: EXPIRY.EXPIRED });
+  const r = assessRelianceForPurpose({
+    entry,
+    context: currentRequest(entry).context,
+    reliance_purpose: RELIANCE_PURPOSE.HISTORICAL_AS_OF,
+    as_of: '2025-01-01',
+  }).purpose_assessment;
+  ok(r.admissible);
+  eq(r.temporal_matches, true);
+  eq(r.authorizes_current_operational, false);
+  eq(r.authorizes_historical_as_of, true);
+});
+
+t('historical fails outside or without the effective interval', () => {
+  const outside = assessRelianceForPurpose({
+    entry: temporalBase({ effective_interval: { from: '2025-01-01' } }),
+    context: currentRequest(temporalBase()).context,
+    reliance_purpose: RELIANCE_PURPOSE.HISTORICAL_AS_OF,
+    as_of: '2024-12-31',
+  }).purpose_assessment;
+  eq(outside.admissible, false);
+  eq(outside.temporal_matches, false);
+  const entry = temporalBase(); delete entry.effective_interval;
+  const missing = assessRelianceForPurpose({
+    entry,
+    context: currentRequest(entry).context,
+    reliance_purpose: RELIANCE_PURPOSE.HISTORICAL_AS_OF,
+    as_of: '2025-01-01',
+  }).purpose_assessment;
+  eq(missing.admissible, false);
+  eq(missing.temporal_known, false);
+});
+
+t('historical output keeps artifact time and provision applicability separate', () => {
+  const r = assessRelianceForPurpose({
+    entry: temporalBase({
+      effective_interval: { from: '2024-08-01' },
+      applicability: { from: '2025-02-02' },
+    }),
+    context: currentRequest(temporalBase()).context,
+    reliance_purpose: RELIANCE_PURPOSE.HISTORICAL_AS_OF,
+    as_of: '2024-12-01',
+  }).purpose_assessment;
+  eq(r.temporal_matches, true);
+  eq(r.applicability_matches, false);
+});
+
+t('current authorization conjunct mutation property holds for every required gate', () => {
+  const mutations = [
+    (e) => { delete e.effective_interval; },
+    (e) => { delete e.applicability; },
+    (e) => { delete e.scope; },
+    (e) => { e.authority_status = AUTHORITY.UNKNOWN; },
+    (e) => { delete e.normative_unit; },
+    (e) => { e.normative_unit = { instrument: 'Synthetic Regulation 2024/0001' }; },
+    (e) => { delete e.provision_segmentation; },
+    (e) => { e.provision_segmentation = { status: PROVISION_SEGMENTATION_STATUS.UNKNOWN }; },
+    (e) => { delete e.applicability_conditions; },
+    (e) => { e.applicability_conditions = { status: APPLICABILITY_CONDITION_STATUS.UNKNOWN, evidence: [] }; },
+  ];
+  for (const mutate of mutations) {
+    const entry = temporalBase(); mutate(entry);
+    const r = assessRelianceForPurpose(currentRequest(entry)).purpose_assessment;
+    eq(r.authorizes_current_operational, false);
+    ok(!(r.authorizes_current_operational && (
+      !r.temporal_known || !r.applicability_known || !r.scope_known
+    )));
+  }
+});
+
+t('purpose assessment is deterministic and does not read the system clock', () => {
+  const request = currentRequest(temporalBase());
+  eq(assessRelianceForPurpose(request), assessRelianceForPurpose(request));
+});
+
+t('provision segmentation validator rejects unknown enum values', () => {
+  throws(() => validateProvisionSegmentation({ status: 'BOGUS' }), 'INVALID_ENUM');
+});
+
 console.log('\nnorms-mcp — revalidation\n');
 
 t('matching fingerprint yields CURRENT', () => {
@@ -222,6 +497,18 @@ t('digest is insensitive to line endings and trailing whitespace', () => {
 
 t('digest changes when content changes', () => {
   ok(corpusDigest({ d: 'a' }) !== corpusDigest({ d: 'b' }));
+});
+
+t('legacy record bytes retain their frozen document digest', () => {
+  const legacy = JSON.stringify({
+    key: 'LEGACY',
+    origin: { type: 'SOURCE_DOCUMENT' },
+    verification_state: 'UNCONFIRMED',
+    currency: 'UNKNOWN',
+    authority_status: 'UNKNOWN',
+    expiry_status: 'UNKNOWN',
+  });
+  eq(documentDigest(legacy), '6166ebda2a99b99dfefb66ac7c6c399db5b0a7a96b1bd55006cc1031e0e97fdb');
 });
 
 t('duplicate document ids are rejected', () => {

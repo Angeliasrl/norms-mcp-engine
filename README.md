@@ -16,7 +16,7 @@ network, no transport.
 > overclaim this library exists to make visible.
 
 ```bash
-npm test    # 73 tests + claim-map sync check; no network, no account required
+npm test    # model tests + claim-map sync check; no network, no account required
 ```
 
 ---
@@ -109,6 +109,38 @@ engine reports the match; it never decides.
 `jurisdiction` and `applicable_operations`. No hierarchies, wildcards or
 negation. An empty or malformed scope **throws** — it never becomes a match,
 because "unspecified" must not silently mean "applies to everything".
+
+### Purpose-aware temporal and provision reliance
+
+The legacy gate above remains **current operational ground eligibility**. It
+cannot determine whether a selected provision has started or ceased to apply,
+whether additional applicability conditions are satisfied, or whether a whole
+instrument needs provision-level segmentation.
+
+The additive `assessRelianceForPurpose` API distinguishes current operational,
+historical as-of, and comparative use. It keeps artifact `effective_interval`
+separate from provision `applicability`, requires explicit civil dates where a
+date is relevant, and fails current operational assessment closed when the
+normative unit, segmentation, applicability, conditions, authority, or scope is
+unknown.
+
+```js
+import {
+  RELIANCE_PURPOSE,
+  assessRelianceForPurpose,
+} from 'norms-mcp-engine/model';
+
+assessRelianceForPurpose({
+  entry,
+  context,
+  reliance_purpose: RELIANCE_PURPOSE.CURRENT_OPERATIONAL,
+  as_of: '2026-08-03',
+});
+```
+
+See [`TEMPORAL_PURPOSE_MODEL.md`](./TEMPORAL_PURPOSE_MODEL.md) for the public
+API contract and [`PROVISION_LEVEL_APPLICABILITY_FALSE_POSITIVE_01.md`](./PROVISION_LEVEL_APPLICABILITY_FALSE_POSITIVE_01.md)
+for the fail-closed publication gate.
 
 ### Ratification carries its proof
 

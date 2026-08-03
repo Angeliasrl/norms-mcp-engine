@@ -4,7 +4,7 @@ import {
   RELIANCE_PURPOSE, APPLICABILITY_CONDITION_STATUS, PROVISION_SEGMENTATION_STATUS,
   isValidCivilDate, validateEffectiveInterval, validateApplicability,
   validateApplicabilityConditions, validateProvisionSegmentation,
-  assessRelianceForPurpose,
+  assessRelianceForPurpose as assessRelianceForPurposeRaw,
 } from '../src/model.js';
 import {
   byteLength, canonicaliseContent, canonicalBytes, corpusDigest,
@@ -36,6 +36,17 @@ const RATIFIED_PROOF = {
   sha256: '7323dd5f'.padEnd(64, '0'),
   section_id: 'sec-4-2',
 };
+const PURPOSE_TRUST = {
+  trusted_external_evaluations: [{
+    evidence_package_sha256: RATIFIED_PROOF.sha256,
+    rule_id: 'synthetic-rule',
+    evaluator_id: 'synthetic-evaluator',
+    authority_id: 'synthetic-authority',
+    outcome: 'SATISFIED',
+  }],
+};
+const assessRelianceForPurpose = (request) =>
+  assessRelianceForPurposeRaw(request, PURPOSE_TRUST);
 
 const base = (over = {}) => ({
   key: 'RETENTION_WINDOW',
@@ -168,8 +179,22 @@ const temporalBase = (over = {}) => base({
   },
   applicability: { from: '2025-02-02' },
   applicability_conditions: {
-    status: APPLICABILITY_CONDITION_STATUS.NONE,
-    evidence: [],
+    completeness: 'COMPLETE',
+    completeness_evaluation: {
+      mode: 'EXTERNAL_EVALUATION_REQUIRED',
+      evaluation: {
+        outcome: 'SATISFIED',
+        verification_state: 'RATIFIED',
+        evidence: [{ type: 'DOCUMENT_REFERENCE', reference: 'synthetic applicability contract' }],
+        ratification: {
+          ...RATIFIED_PROOF,
+          rule_id: 'synthetic-rule',
+          evaluator_id: 'synthetic-evaluator',
+          authority_id: 'synthetic-authority',
+        },
+      },
+    },
+    conditions: [],
   },
   provision_segmentation: {
     status: PROVISION_SEGMENTATION_STATUS.SEGMENTED,
@@ -244,13 +269,19 @@ t('current operational without applicability is the explicit P0 regression', () 
   eq(r.authorizes_current_operational, false);
 });
 
-t('conditions NONE and SATISFIED with structured evidence can proceed', () => {
+t('verified completeness and engine-derived true condition can proceed', () => {
   const none = assessRelianceForPurpose(currentRequest(temporalBase())).purpose_assessment;
   ok(none.conditions_known && none.conditions_satisfied && none.admissible);
   const satisfied = temporalBase({
     applicability_conditions: {
-      status: APPLICABILITY_CONDITION_STATUS.SATISFIED,
-      evidence: [{ type: 'DOCUMENT_REFERENCE', reference: 'Synthetic record section 2' }],
+      ...temporalBase().applicability_conditions,
+      conditions: [{
+        id: 'synthetic-boolean',
+        evaluation_mode: 'ENGINE_EVALUATED',
+        predicate: { operator: 'BOOLEAN_IS', left_fact: 'applies', right_value: true },
+        facts: { applies: true },
+        evidence: [],
+      }],
     },
   });
   const r = assessRelianceForPurpose(currentRequest(satisfied)).purpose_assessment;
@@ -267,16 +298,17 @@ t('SATISFIED without structured evidence is rejected', () => {
   );
 });
 
-t('NOT_SATISFIED, UNKNOWN, and absent conditions fail current operational', () => {
-  for (const status of [
-    APPLICABILITY_CONDITION_STATUS.NOT_SATISFIED,
-    APPLICABILITY_CONDITION_STATUS.UNKNOWN,
-  ]) {
-    const entry = temporalBase({ applicability_conditions: { status, evidence: [] } });
-    const r = assessRelianceForPurpose(currentRequest(entry)).purpose_assessment;
-    eq(r.admissible, false, status);
-    eq(r.authorizes_current_operational, false, status);
-  }
+t('derived false, unconfirmed, and absent conditions fail current operational', () => {
+  const falseEntry = temporalBase();
+  falseEntry.applicability_conditions.conditions = [{
+    id: 'false', evaluation_mode: 'ENGINE_EVALUATED',
+    predicate: { operator: 'BOOLEAN_IS', left_fact: 'applies', right_value: true },
+    facts: { applies: false }, evidence: [],
+  }];
+  eq(assessRelianceForPurpose(currentRequest(falseEntry)).purpose_assessment.authorizes_current_operational, false);
+  const unknownEntry = temporalBase();
+  unknownEntry.applicability_conditions.completeness = 'UNKNOWN';
+  eq(assessRelianceForPurpose(currentRequest(unknownEntry)).purpose_assessment.authorizes_current_operational, false);
   const absent = temporalBase(); delete absent.applicability_conditions;
   const r = assessRelianceForPurpose(currentRequest(absent)).purpose_assessment;
   eq(r.conditions_known, false);
@@ -400,7 +432,7 @@ t('current authorization conjunct mutation property holds for every required gat
     (e) => { delete e.provision_segmentation; },
     (e) => { e.provision_segmentation = { status: PROVISION_SEGMENTATION_STATUS.UNKNOWN }; },
     (e) => { delete e.applicability_conditions; },
-    (e) => { e.applicability_conditions = { status: APPLICABILITY_CONDITION_STATUS.UNKNOWN, evidence: [] }; },
+    (e) => { e.applicability_conditions.completeness = 'UNKNOWN'; },
   ];
   for (const mutate of mutations) {
     const entry = temporalBase(); mutate(entry);

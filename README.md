@@ -1,5 +1,9 @@
 # norms-mcp-engine
 
+Purpose-aware current reliance uses an evidence-bound condition boundary. Callers cannot authorize operation by supplying `applicability_conditions.status: SATISFIED`; that legacy shape is rejected by `assessRelianceForPurpose`. Conditions are either derived by the closed predicate DSL or accepted through a fully ratified external evaluation. Condition completeness is independently verified and current authorization fails closed for missing, unsupported, unknown, or unconfirmed bases.
+
+See `CONDITION_EVIDENCE_BOUNDARY.md` and `UNTRUSTED_CONDITION_ASSERTION_FALSE_POSITIVE_01.md`.
+
 **Experimental prerelease. Engine only. Not an MCP server. No I/O, network,
 persistence or transport.**
 

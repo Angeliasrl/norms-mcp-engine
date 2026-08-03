@@ -66,6 +66,37 @@ export const APPLICABILITY_EVIDENCE_TYPE = Object.freeze({
   EXTERNAL_VERIFICATION: 'EXTERNAL_VERIFICATION',
 });
 
+export const CONDITION_COMPLETENESS = Object.freeze({
+  COMPLETE: 'COMPLETE', INCOMPLETE: 'INCOMPLETE', UNKNOWN: 'UNKNOWN',
+});
+export const CONDITION_EVALUATION_MODE = Object.freeze({
+  ENGINE_EVALUATED: 'ENGINE_EVALUATED',
+  EXTERNAL_EVALUATION_REQUIRED: 'EXTERNAL_EVALUATION_REQUIRED',
+});
+export const CONDITION_OUTCOME = Object.freeze({
+  SATISFIED: 'SATISFIED', NOT_SATISFIED: 'NOT_SATISFIED', UNKNOWN: 'UNKNOWN',
+});
+export const CONDITION_BASIS = Object.freeze({
+  ENGINE_DERIVED: 'ENGINE_DERIVED',
+  EXTERNALLY_RATIFIED: 'EXTERNALLY_RATIFIED',
+  CALLER_ASSERTED_UNCONFIRMED: 'CALLER_ASSERTED_UNCONFIRMED',
+  MISSING: 'MISSING',
+  UNSUPPORTED: 'UNSUPPORTED',
+});
+export const PREDICATE_OPERATOR = Object.freeze({
+  EQ: 'EQ', NEQ: 'NEQ', IN: 'IN', NOT_IN: 'NOT_IN',
+  BOOLEAN_IS: 'BOOLEAN_IS',
+  NUM_GT: 'NUM_GT', NUM_GTE: 'NUM_GTE', NUM_LT: 'NUM_LT', NUM_LTE: 'NUM_LTE',
+  DATE_BEFORE: 'DATE_BEFORE', DATE_ON_OR_BEFORE: 'DATE_ON_OR_BEFORE',
+  DATE_AFTER: 'DATE_AFTER', DATE_ON_OR_AFTER: 'DATE_ON_OR_AFTER',
+  IN_INTERVAL: 'IN_INTERVAL', ALL: 'ALL', ANY: 'ANY', NOT: 'NOT',
+});
+
+const CONDITION_LIMITS = Object.freeze({
+  conditions: 32, facts: 64, nodes: 128, depth: 6, operands: 16,
+  evidence: 32, string: 512, identifier: 128, trustedEvaluations: 64,
+});
+
 export const PROVISION_SEGMENTATION_STATUS = Object.freeze({
   SEGMENTED: 'SEGMENTED',
   NOT_REQUIRED: 'NOT_REQUIRED',
@@ -287,6 +318,172 @@ export function validateApplicabilityConditions(conditions, key = 'entry') {
   return true;
 }
 
+const exactFields = (value, allowed, label, code) => {
+  const unexpected = Object.keys(value).filter((field) => !allowed.includes(field));
+  if (unexpected.length) throw new ModelError(`${label} has unexpected field ${unexpected[0]}`, code);
+};
+
+const validateConditionEvidence = (items, label) => {
+  if (!Array.isArray(items)) throw new ModelError(`${label} evidence must be an array`, 'CONDITION_EVIDENCE_MALFORMED');
+  if (items.length > CONDITION_LIMITS.evidence) throw new ModelError(`${label} has too much evidence`, 'CONDITION_EVIDENCE_LIMIT');
+  for (const item of items) {
+    if (!isPlainObject(item)) throw new ModelError(`${label} evidence item must be an object`, 'CONDITION_EVIDENCE_MALFORMED');
+    exactFields(item, ['type', 'reference'], label, 'CONDITION_EVIDENCE_UNEXPECTED_FIELD');
+    oneOf(item.type, APPLICABILITY_EVIDENCE_TYPE, `${label}.evidence.type`);
+    if (typeof item.reference !== 'string' || item.reference.length === 0 || item.reference.length > CONDITION_LIMITS.string) {
+      throw new ModelError(`${label} evidence reference is invalid`, 'CONDITION_EVIDENCE_MALFORMED');
+    }
+  }
+};
+
+const validateExternalRatification = (r, label) => {
+  if (!isPlainObject(r)) throw new ModelError(`${label} requires ratification`, 'EXTERNAL_EVALUATION_RATIFICATION_REQUIRED');
+  const required = ['date', 'document', 'sha256', 'section_id', 'rule_id', 'evaluator_id', 'authority_id'];
+  exactFields(r, [...required, 'section_label'], label, 'EXTERNAL_EVALUATION_RATIFICATION_UNEXPECTED_FIELD');
+  for (const field of required) {
+    if (typeof r[field] !== 'string' || r[field].length === 0 || r[field].length > CONDITION_LIMITS.string) {
+      throw new ModelError(`${label}.ratification.${field} is required`, 'EXTERNAL_EVALUATION_RATIFICATION_INCOMPLETE');
+    }
+  }
+  if (!isValidCivilDate(r.date)) throw new ModelError(`${label}.ratification.date is invalid`, 'EXTERNAL_EVALUATION_DATE_INVALID');
+  if (!SHA256_HEX.test(r.sha256)) throw new ModelError(`${label}.ratification.sha256 is invalid`, 'EXTERNAL_EVALUATION_BAD_DIGEST');
+};
+
+const validateExternalEvaluation = (evaluation, label) => {
+  if (!isPlainObject(evaluation)) throw new ModelError(`${label}.evaluation is required`, 'EXTERNAL_EVALUATION_MALFORMED');
+  exactFields(evaluation, ['outcome', 'verification_state', 'evidence', 'ratification'], label, 'EXTERNAL_EVALUATION_UNEXPECTED_FIELD');
+  oneOf(evaluation.outcome, CONDITION_OUTCOME, `${label}.outcome`);
+  oneOf(evaluation.verification_state, VERIFICATION, `${label}.verification_state`);
+  validateConditionEvidence(evaluation.evidence, label);
+  if (evaluation.verification_state === VERIFICATION.RATIFIED) {
+    if (evaluation.evidence.length === 0) throw new ModelError(`${label} ratified evaluation requires evidence`, 'EXTERNAL_EVALUATION_EVIDENCE_REQUIRED');
+    validateExternalRatification(evaluation.ratification, label);
+  } else if (evaluation.ratification !== undefined) {
+    throw new ModelError(`${label} unconfirmed evaluation cannot carry ratification`, 'EXTERNAL_EVALUATION_UNCONFIRMED_WITH_RATIFICATION');
+  }
+};
+
+const validateFactValue = (value, label) => {
+  const valid = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+  if (!valid || (typeof value === 'number' && !Number.isFinite(value)) ||
+      (typeof value === 'string' && value.length > CONDITION_LIMITS.string)) {
+    throw new ModelError(`${label} fact must be a bounded string, finite number, or boolean`, 'CONDITION_FACT_INVALID');
+  }
+};
+
+const validatePredicate = (predicate, facts, state = { nodes: 0 }, depth = 0) => {
+  if (!isPlainObject(predicate)) throw new ModelError('predicate must be an object', 'CONDITION_PREDICATE_MALFORMED');
+  if (depth > CONDITION_LIMITS.depth || ++state.nodes > CONDITION_LIMITS.nodes) {
+    throw new ModelError('predicate complexity limit exceeded', 'CONDITION_PREDICATE_LIMIT');
+  }
+  oneOf(predicate.operator, PREDICATE_OPERATOR, 'predicate.operator');
+  const op = predicate.operator;
+  if (op === PREDICATE_OPERATOR.ALL || op === PREDICATE_OPERATOR.ANY) {
+    exactFields(predicate, ['operator', 'operands'], 'predicate', 'CONDITION_PREDICATE_UNEXPECTED_FIELD');
+    if (!Array.isArray(predicate.operands) || predicate.operands.length === 0 || predicate.operands.length > CONDITION_LIMITS.operands) {
+      throw new ModelError('predicate.operands is invalid', 'CONDITION_PREDICATE_LIMIT');
+    }
+    predicate.operands.forEach((item) => validatePredicate(item, facts, state, depth + 1));
+    return;
+  }
+  if (op === PREDICATE_OPERATOR.NOT) {
+    exactFields(predicate, ['operator', 'operand'], 'predicate', 'CONDITION_PREDICATE_UNEXPECTED_FIELD');
+    validatePredicate(predicate.operand, facts, state, depth + 1); return;
+  }
+  if (op === PREDICATE_OPERATOR.IN_INTERVAL) {
+    exactFields(predicate, ['operator', 'left_fact', 'from', 'until_exclusive'], 'predicate', 'CONDITION_PREDICATE_UNEXPECTED_FIELD');
+    if (!isValidCivilDate(predicate.from) || (predicate.until_exclusive !== undefined && (!isValidCivilDate(predicate.until_exclusive) || predicate.until_exclusive <= predicate.from))) {
+      throw new ModelError('predicate interval is invalid', 'CONDITION_PREDICATE_DATE_INVALID');
+    }
+  } else if (op === PREDICATE_OPERATOR.IN || op === PREDICATE_OPERATOR.NOT_IN) {
+    exactFields(predicate, ['operator', 'left_fact', 'right_values'], 'predicate', 'CONDITION_PREDICATE_UNEXPECTED_FIELD');
+    if (!Array.isArray(predicate.right_values) || predicate.right_values.length === 0 || predicate.right_values.length > CONDITION_LIMITS.operands) throw new ModelError('predicate set is invalid', 'CONDITION_PREDICATE_LIMIT');
+    predicate.right_values.forEach((v) => validateFactValue(v, 'predicate'));
+  } else {
+    exactFields(predicate, ['operator', 'left_fact', 'right_value'], 'predicate', 'CONDITION_PREDICATE_UNEXPECTED_FIELD');
+    validateFactValue(predicate.right_value, 'predicate');
+  }
+  if (typeof predicate.left_fact !== 'string' || !Object.hasOwn(facts, predicate.left_fact)) {
+    throw new ModelError('predicate left_fact is missing', 'CONDITION_FACT_MISSING');
+  }
+};
+
+export function evaluateConditionPredicate(predicate, facts) {
+  if (!isPlainObject(facts)) throw new ModelError('facts must be an object', 'CONDITION_FACTS_MALFORMED');
+  const keys = Object.keys(facts);
+  if (keys.length > CONDITION_LIMITS.facts) throw new ModelError('too many facts', 'CONDITION_FACT_LIMIT');
+  keys.forEach((key) => {
+    if (key.length === 0 || key.length > CONDITION_LIMITS.identifier) throw new ModelError('fact key is invalid', 'CONDITION_FACT_KEY_INVALID');
+    validateFactValue(facts[key], `facts.${key}`);
+  });
+  validatePredicate(predicate, facts);
+  const evaluate = (node) => {
+    const op = node.operator;
+    if (op === 'ALL') return node.operands.every(evaluate);
+    if (op === 'ANY') return node.operands.some(evaluate);
+    if (op === 'NOT') return !evaluate(node.operand);
+    const left = facts[node.left_fact];
+    if (op === 'EQ' || op === 'NEQ') {
+      if (typeof left !== typeof node.right_value) throw new ModelError('equality type mismatch', 'CONDITION_TYPE_MISMATCH');
+      return op === 'EQ' ? left === node.right_value : left !== node.right_value;
+    }
+    if (op === 'IN' || op === 'NOT_IN') {
+      if (node.right_values.some((v) => typeof v !== typeof left)) throw new ModelError('set type mismatch', 'CONDITION_TYPE_MISMATCH');
+      const found = node.right_values.includes(left); return op === 'IN' ? found : !found;
+    }
+    if (op === 'BOOLEAN_IS') {
+      if (typeof left !== 'boolean' || typeof node.right_value !== 'boolean') throw new ModelError('boolean type mismatch', 'CONDITION_TYPE_MISMATCH');
+      return left === node.right_value;
+    }
+    if (op.startsWith('NUM_')) {
+      if (typeof left !== 'number' || typeof node.right_value !== 'number') throw new ModelError('numeric type mismatch', 'CONDITION_TYPE_MISMATCH');
+      return op === 'NUM_GT' ? left > node.right_value : op === 'NUM_GTE' ? left >= node.right_value : op === 'NUM_LT' ? left < node.right_value : left <= node.right_value;
+    }
+    if (op.startsWith('DATE_')) {
+      if (!isValidCivilDate(left) || !isValidCivilDate(node.right_value)) throw new ModelError('date operand invalid', 'CONDITION_PREDICATE_DATE_INVALID');
+      return op === 'DATE_BEFORE' ? left < node.right_value : op === 'DATE_ON_OR_BEFORE' ? left <= node.right_value : op === 'DATE_AFTER' ? left > node.right_value : left >= node.right_value;
+    }
+    if (op === 'IN_INTERVAL') {
+      if (!isValidCivilDate(left)) throw new ModelError('date operand invalid', 'CONDITION_PREDICATE_DATE_INVALID');
+      return left >= node.from && (node.until_exclusive === undefined || left < node.until_exclusive);
+    }
+    throw new ModelError('unsupported predicate', 'CONDITION_PREDICATE_UNSUPPORTED');
+  };
+  return { value: evaluate(predicate), basis: CONDITION_BASIS.ENGINE_DERIVED };
+}
+
+export function validatePurposeApplicabilityConditions(conditions, key = 'entry') {
+  if (!isPlainObject(conditions)) throw new ModelError(`${key}: applicability_conditions must be an object`, 'PURPOSE_CONDITIONS_MALFORMED');
+  if (Object.hasOwn(conditions, 'status')) throw new ModelError(`${key}: legacy status is forbidden in purpose-aware reliance`, 'PURPOSE_CONDITIONS_LEGACY_STATUS_FORBIDDEN');
+  exactFields(conditions, ['completeness', 'completeness_evaluation', 'conditions'], `${key}.applicability_conditions`, 'PURPOSE_CONDITIONS_UNEXPECTED_FIELD');
+  oneOf(conditions.completeness, CONDITION_COMPLETENESS, `${key}.applicability_conditions.completeness`);
+  if (!Array.isArray(conditions.conditions) || conditions.conditions.length > CONDITION_LIMITS.conditions) throw new ModelError('conditions list is invalid', 'PURPOSE_CONDITIONS_LIMIT');
+  if (!isPlainObject(conditions.completeness_evaluation)) throw new ModelError('completeness evaluation is required', 'CONDITION_COMPLETENESS_EVALUATION_REQUIRED');
+  exactFields(conditions.completeness_evaluation, ['mode', 'evaluation', 'applicability_contract'], 'completeness_evaluation', 'CONDITION_COMPLETENESS_UNEXPECTED_FIELD');
+  oneOf(conditions.completeness_evaluation.mode, CONDITION_EVALUATION_MODE, 'completeness_evaluation.mode');
+  if (conditions.completeness_evaluation.mode === CONDITION_EVALUATION_MODE.EXTERNAL_EVALUATION_REQUIRED) {
+    validateExternalEvaluation(conditions.completeness_evaluation.evaluation, 'completeness_evaluation');
+  } else {
+    validateExternalEvaluation(conditions.completeness_evaluation.applicability_contract, 'applicability_contract');
+  }
+  const ids = new Set();
+  for (const condition of conditions.conditions) {
+    if (!isPlainObject(condition)) throw new ModelError('condition must be an object', 'CONDITION_MALFORMED');
+    if (typeof condition.id !== 'string' || condition.id.length === 0 || condition.id.length > CONDITION_LIMITS.identifier || ids.has(condition.id)) throw new ModelError('condition id is invalid or duplicate', 'CONDITION_ID_INVALID');
+    ids.add(condition.id);
+    oneOf(condition.evaluation_mode, CONDITION_EVALUATION_MODE, `${condition.id}.evaluation_mode`);
+    if (condition.evaluation_mode === CONDITION_EVALUATION_MODE.ENGINE_EVALUATED) {
+      exactFields(condition, ['id', 'evaluation_mode', 'predicate', 'facts', 'evidence'], condition.id, 'CONDITION_UNEXPECTED_FIELD');
+      validateConditionEvidence(condition.evidence, condition.id);
+      evaluateConditionPredicate(condition.predicate, condition.facts);
+    } else {
+      exactFields(condition, ['id', 'evaluation_mode', 'evaluation'], condition.id, 'CONDITION_UNEXPECTED_FIELD');
+      validateExternalEvaluation(condition.evaluation, condition.id);
+    }
+  }
+  return true;
+}
+
 export function validateProvisionSegmentation(segmentation, key = 'entry') {
   if (!isPlainObject(segmentation)) {
     throw new ModelError(
@@ -367,7 +564,11 @@ export function validateEntry(entry) {
   if (entry.normative_unit !== undefined) validateNormativeUnit(entry.normative_unit, entry.key);
   if (entry.applicability !== undefined) validateApplicability(entry.applicability, entry.key);
   if (entry.applicability_conditions !== undefined) {
-    validateApplicabilityConditions(entry.applicability_conditions, entry.key);
+    if (Object.hasOwn(entry.applicability_conditions, 'status')) {
+      validateApplicabilityConditions(entry.applicability_conditions, entry.key);
+    } else {
+      validatePurposeApplicabilityConditions(entry.applicability_conditions, entry.key);
+    }
   }
   if (entry.provision_segmentation !== undefined) {
     validateProvisionSegmentation(entry.provision_segmentation, entry.key);
@@ -605,10 +806,94 @@ const validatePurposeRequest = (request) => {
  * unmodified current operational ground result and never changes
  * eligibleAsGround or admissibleFor.
  */
-export function assessRelianceForPurpose(request) {
+const validateTrustRegistry = (options) => {
+  if (!isPlainObject(options)) throw new ModelError('assessment options must be an object', 'TRUST_OPTIONS_MALFORMED');
+  exactFields(options, ['trusted_external_evaluations'], 'assessment options', 'TRUST_OPTIONS_UNEXPECTED_FIELD');
+  const registry = options.trusted_external_evaluations ?? [];
+  if (!Array.isArray(registry) || registry.length > CONDITION_LIMITS.trustedEvaluations) {
+    throw new ModelError('trusted evaluation registry is invalid', 'TRUST_REGISTRY_MALFORMED');
+  }
+  for (const item of registry) {
+    if (!isPlainObject(item)) throw new ModelError('trusted registry item is invalid', 'TRUST_REGISTRY_MALFORMED');
+    exactFields(item, ['evidence_package_sha256', 'rule_id', 'evaluator_id', 'authority_id', 'outcome'], 'trusted registry item', 'TRUST_REGISTRY_UNEXPECTED_FIELD');
+    if (!SHA256_HEX.test(item.evidence_package_sha256)) throw new ModelError('trusted registry digest is invalid', 'TRUST_REGISTRY_BAD_DIGEST');
+    for (const field of ['rule_id', 'evaluator_id', 'authority_id']) {
+      if (typeof item[field] !== 'string' || item[field].length === 0 || item[field].length > CONDITION_LIMITS.string) throw new ModelError('trusted registry identity is invalid', 'TRUST_REGISTRY_MALFORMED');
+    }
+    oneOf(item.outcome, CONDITION_OUTCOME, 'trusted registry outcome');
+  }
+  return registry;
+};
+
+const assessExternalEvaluation = (evaluation, registry) => {
+  if (evaluation.verification_state !== VERIFICATION.RATIFIED) {
+    return { outcome: evaluation.outcome, basis: CONDITION_BASIS.CALLER_ASSERTED_UNCONFIRMED };
+  }
+  const r = evaluation.ratification;
+  const trusted = registry.some((item) =>
+    item.evidence_package_sha256 === r.sha256 &&
+    item.rule_id === r.rule_id &&
+    item.evaluator_id === r.evaluator_id &&
+    item.authority_id === r.authority_id &&
+    item.outcome === evaluation.outcome
+  );
+  return {
+    outcome: evaluation.outcome,
+    basis: trusted ? CONDITION_BASIS.EXTERNALLY_RATIFIED : CONDITION_BASIS.CALLER_ASSERTED_UNCONFIRMED,
+  };
+};
+
+const assessPurposeConditions = (conditions, registry) => {
+  if (conditions === undefined) return {
+    results: [], completenessVerified: false, known: false, satisfied: false,
+    completenessResult: { outcome: CONDITION_OUTCOME.UNKNOWN, basis: CONDITION_BASIS.MISSING },
+    externalRequired: true,
+  };
+  validatePurposeApplicabilityConditions(conditions);
+  const completenessResult = conditions.completeness_evaluation.mode === CONDITION_EVALUATION_MODE.ENGINE_EVALUATED
+    ? assessExternalEvaluation(conditions.completeness_evaluation.applicability_contract, registry)
+    : assessExternalEvaluation(conditions.completeness_evaluation.evaluation, registry);
+  const completenessVerified =
+    conditions.completeness === CONDITION_COMPLETENESS.COMPLETE &&
+    completenessResult.outcome === CONDITION_OUTCOME.SATISFIED &&
+    (completenessResult.basis === CONDITION_BASIS.ENGINE_DERIVED ||
+     completenessResult.basis === CONDITION_BASIS.EXTERNALLY_RATIFIED);
+  const results = conditions.conditions.map((condition) => {
+    if (condition.evaluation_mode === CONDITION_EVALUATION_MODE.ENGINE_EVALUATED) {
+      const derived = evaluateConditionPredicate(condition.predicate, condition.facts);
+      return {
+        id: condition.id,
+        outcome: derived.value ? CONDITION_OUTCOME.SATISFIED : CONDITION_OUTCOME.NOT_SATISFIED,
+        basis: CONDITION_BASIS.ENGINE_DERIVED,
+      };
+    }
+    return { id: condition.id, ...assessExternalEvaluation(condition.evaluation, registry) };
+  });
+  const trusted = (result) =>
+    result.basis === CONDITION_BASIS.ENGINE_DERIVED ||
+    result.basis === CONDITION_BASIS.EXTERNALLY_RATIFIED;
+  const known = completenessVerified && results.every((r) => r.outcome !== CONDITION_OUTCOME.UNKNOWN && trusted(r));
+  const satisfied = known && results.every((r) => r.outcome === CONDITION_OUTCOME.SATISFIED);
+  return {
+    results, completenessResult, completenessVerified, known, satisfied,
+    externalRequired:
+      (completenessResult.basis !== CONDITION_BASIS.ENGINE_DERIVED &&
+       completenessResult.basis !== CONDITION_BASIS.EXTERNALLY_RATIFIED) ||
+      results.some((r) => r.basis !== CONDITION_BASIS.ENGINE_DERIVED && r.basis !== CONDITION_BASIS.EXTERNALLY_RATIFIED),
+  };
+};
+
+export function assessRelianceForPurpose(request, options = {}) {
   validatePurposeRequest(request);
+  const trustRegistry = validateTrustRegistry(options);
   const { entry, context = {}, reliance_purpose: purpose, as_of: asOf } = request;
   validateEntry(entry);
+  if (entry.applicability_conditions && Object.hasOwn(entry.applicability_conditions, 'status')) {
+    throw new ModelError(
+      'legacy applicability_conditions.status is forbidden in purpose-aware reliance',
+      'PURPOSE_CONDITIONS_LEGACY_STATUS_FORBIDDEN'
+    );
+  }
   const currentGround = eligibleAsGround(entry);
   const scope = assessScope(entry, context);
   const interval = entry.effective_interval;
@@ -627,14 +912,9 @@ export function assessRelianceForPurpose(request) {
   const applicabilityMatches = applicability === undefined || asOf === undefined
     ? null
     : intervalContains(applicability, asOf);
-  const conditionsStatus = entry.applicability_conditions?.status ?? null;
-  const conditionsKnown =
-    conditionsStatus === APPLICABILITY_CONDITION_STATUS.NONE ||
-    conditionsStatus === APPLICABILITY_CONDITION_STATUS.SATISFIED ||
-    conditionsStatus === APPLICABILITY_CONDITION_STATUS.NOT_SATISFIED;
-  const conditionsSatisfied =
-    conditionsStatus === APPLICABILITY_CONDITION_STATUS.NONE ||
-    conditionsStatus === APPLICABILITY_CONDITION_STATUS.SATISFIED;
+  const conditionAssessment = assessPurposeConditions(entry.applicability_conditions, trustRegistry);
+  const conditionsKnown = conditionAssessment.known;
+  const conditionsSatisfied = conditionAssessment.satisfied;
   const normativeUnitKnown = entry.normative_unit !== undefined;
   const provisionIdentified =
     normativeUnitKnown && typeof entry.normative_unit.provision === 'string';
@@ -666,6 +946,7 @@ export function assessRelianceForPurpose(request) {
     else if (requiresProvisionSegmentation) blocking.push('provision_segmentation.required');
     if (!applicabilityKnown) unknown.push('applicability.missing');
     else if (!applicabilityMatches) blocking.push('applicability.mismatch');
+    if (!conditionAssessment.completenessVerified) unknown.push('applicability_conditions.completeness_unverified');
     if (!conditionsKnown) unknown.push('applicability_conditions.unknown');
     else if (!conditionsSatisfied) blocking.push('applicability_conditions.not_satisfied');
   } else {
@@ -717,6 +998,11 @@ export function assessRelianceForPurpose(request) {
     applicabilityMatches === true &&
     conditionsKnown === true &&
     conditionsSatisfied === true &&
+    conditionAssessment.completenessVerified === true &&
+    conditionAssessment.results.every((result) =>
+      result.basis === CONDITION_BASIS.ENGINE_DERIVED ||
+      result.basis === CONDITION_BASIS.EXTERNALLY_RATIFIED
+    ) &&
     normativeUnitKnown === true &&
     provisionIdentified === true &&
     segmentationKnown === true &&
@@ -743,9 +1029,14 @@ export function assessRelianceForPurpose(request) {
     applicability: applicability ?? null,
     applicability_known: applicabilityKnown,
     applicability_matches: applicabilityMatches,
-    conditions_status: conditionsStatus,
+    conditions_status: null,
     conditions_known: conditionsKnown,
     conditions_satisfied: conditionsSatisfied,
+    condition_completeness: entry.applicability_conditions?.completeness ?? null,
+    condition_completeness_result: conditionAssessment.completenessResult,
+    condition_completeness_verified: conditionAssessment.completenessVerified,
+    condition_results: conditionAssessment.results,
+    external_evaluation_required: conditionAssessment.externalRequired,
     normative_unit_known: normativeUnitKnown,
     provision_identified: provisionIdentified,
     segmentation_status: segmentationStatus,

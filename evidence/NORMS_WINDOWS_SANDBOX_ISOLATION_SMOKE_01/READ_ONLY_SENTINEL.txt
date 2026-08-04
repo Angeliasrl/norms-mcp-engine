@@ -1,0 +1,2 @@
+NORMS_WINDOWS_SANDBOX_ISOLATION_SMOKE_01
+This host folder must remain unchanged.

@@ -1,6 +1,6 @@
 # MCP public tool contract 01
 
-Status: local read-only implementation; not deployed publicly.
+Status: deployed read-only implementation.
 
 ## Server
 
@@ -42,34 +42,21 @@ Annotations:
 
 ## Input schema
 
-Required:
+The `inputSchema` returned by `tools/list` is the sole canonical public input
+contract. It is generated from `server/public-input-contract.mjs` and declares
+strict decision objects, reusable definitions and references, required fields,
+enums, bounded facts and evidence, and the three purpose-specific `as_of`
+branches. This document deliberately does not reproduce that schema.
 
-- `entry`: structured normative entry supported by the engine;
-- `context`: structured scope context;
-- `reliance_purpose`: `CURRENT_OPERATIONAL`, `HISTORICAL_AS_OF`, or
-  `COMPARATIVE_ANALYSIS`.
+Schema-invalid arguments are rejected before the engine runs. The only
+intentionally extensible decision input is the atomic-fact map: fact names are
+record keys and every value is a bounded string, finite number, or boolean.
+Unknown properties at the request, entry, context and decision-object levels
+are rejected.
 
-Optional:
-
-- `as_of`: strict civil date `YYYY-MM-DD` where required by the purpose;
-- `trusted_external_evaluations`: at most 64 explicit trust-registry records
-  supported by the condition-evidence contract.
-
-The schema accepts JSON data only. It has no PDF, binary, URL-fetch,
-conversation, expected-outcome, or gate-override field. A supported `value`
-field remains non-evidentiary free text and is never parsed by the tool.
-
-Example input (shape abbreviated; all engine-required entry gates still apply):
-
-```json
-{
-  "entry": { "key": "SYNTHETIC_UNIT_01", "verification_state": "RATIFIED" },
-  "context": { "subject": ["SYNTHETIC_SCOPE_01"] },
-  "reliance_purpose": "CURRENT_OPERATIONAL",
-  "as_of": "2032-06-15",
-  "trusted_external_evaluations": []
-}
-```
+The public `/input-contract` page renders examples from exported constants that
+the automated suite validates against this same canonical schema. There is no
+manual abbreviated example here that can drift from the wire contract.
 
 ## Output schema
 
@@ -89,8 +76,11 @@ segmentation.
 
 ## Error contract
 
-Schema-invalid MCP arguments are rejected by the SDK protocol layer. Inputs that
-pass the transport schema but fail canonical engine validation return:
+Schema-invalid MCP arguments are rejected by the SDK protocol layer with the
+field path, violated constraint and allowed enum values where applicable.
+Ordinary missing gate fields are therefore not reduced to `MISSING_KEY`.
+Cross-field constraints that cannot be fully expressed by JSON Schema continue
+through canonical engine validation and return:
 
 ```text
 NORMS_INPUT_INVALID:<STABLE_ENGINE_CODE>. The structured input was rejected; no assessment was produced.

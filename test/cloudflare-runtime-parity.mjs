@@ -31,6 +31,9 @@ function normalizeSchemaDialect(value) {
   if (value === null || typeof value !== 'object') {
     return typeof value === 'string' ? value.replace('#/$defs/', '#/definitions/') : value;
   }
+  if (Object.keys(value).length === 1 && Array.isArray(value.allOf) && value.allOf.length === 1) {
+    return normalizeSchemaDialect(value.allOf[0]);
+  }
   return Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'execution').map(([key, nested]) => [
     key === '$defs' ? 'definitions' : key,
     key === '$schema' ? 'JSON_SCHEMA_DIALECT' : normalizeSchemaDialect(nested),

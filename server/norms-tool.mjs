@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import * as z from 'zod/v4';
 
 import { ModelError, assessRelianceForPurpose } from '../src/model.js';
+import { publicInputSchema } from './public-input-contract.mjs';
 
 export const TOOL_NAME = 'assess_normative_reliance';
 
@@ -12,30 +13,6 @@ export const SERVER_INSTRUCTIONS = [
   'Always show blocking, unknown, and unexamined, and distinguish not examined from satisfied.',
   'An empty blocking list is not authorization unless every required gate passes.',
 ].join(' ');
-
-const jsonScalar = z.union([z.string(), z.number(), z.boolean(), z.null()]);
-const jsonValue = z.lazy(() => z.union([
-  jsonScalar,
-  z.array(jsonValue),
-  z.record(z.string(), jsonValue),
-]));
-const structuredObject = z.record(z.string(), jsonValue);
-
-const inputSchema = {
-  entry: structuredObject.describe(
-    'A structured normative entry accepted by the canonical NORMS engine. Free-text value fields are never evidence.',
-  ),
-  context: structuredObject.describe('Structured scope context; no conversation transcript or legal narrative.'),
-  reliance_purpose: z.enum([
-    'CURRENT_OPERATIONAL',
-    'HISTORICAL_AS_OF',
-    'COMPARATIVE_ANALYSIS',
-  ]),
-  as_of: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  trusted_external_evaluations: z.array(structuredObject).max(64).optional().describe(
-    'Explicit trust registry entries supported by the canonical condition-evidence contract.',
-  ),
-};
 
 const groundSchema = z.object({
   eligible: z.boolean(),
@@ -127,7 +104,7 @@ export function registerNormsTool(server) {
     {
       title: 'Assess normative reliance',
       description: 'Assess whether a structured normative record may be relied upon for a specified purpose. Returns explicit blockers, unknowns and unexamined areas. It does not retrieve laws, parse documents, infer legal conditions from free text, provide legal advice or certify overall compliance.',
-      inputSchema,
+      inputSchema: publicInputSchema,
       outputSchema,
       annotations: {
         readOnlyHint: true,

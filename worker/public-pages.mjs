@@ -1,4 +1,10 @@
+import {
+  PUBLIC_COMPARATIVE_ANALYSIS_EXAMPLE,
+  PUBLIC_CURRENT_OPERATIONAL_EXAMPLE,
+} from '../server/public-input-contract.mjs';
+
 const EFFECTIVE_DATE = '4 August 2026';
+const REPOSITORY_URL = 'https://github.com/Angeliasrl/norms-mcp-engine';
 
 const escapeHtml = (value) => value
   .replaceAll('&', '&amp;')
@@ -26,7 +32,7 @@ const layout = (title, content) => `<!doctype html>
   <header>
     <h1>NORMS</h1>
     <p>Structured Normative Assessment</p>
-    <nav><a href="/">Website</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/support">Support</a></nav>
+    <nav><a href="/">Website</a><a href="/input-contract">Input contract</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/support">Support</a></nav>
   </header>
   <main>${content}</main>
   <footer><p>Published by Francesco Riva. Effective ${EFFECTIVE_DATE}.</p></footer>
@@ -43,6 +49,18 @@ const pages = new Map([
     <p>Results include admissibility and eligibility fields together with explicit <code>blocking</code>, <code>unknown</code> and <code>unexamined</code> values. An empty blocker list alone is never treated as authorization.</p>
     <h2>Limits</h2>
     <p>NORMS accepts only structured records and facts. It does not accept files or PDFs, retrieve laws from the Internet, infer normative conditions from free text, provide legal advice, certify overall compliance, or modify external data or systems.</p>
+    <p><a href="/input-contract">Read the public input contract and validated examples</a>. Source code is available in the <a href="${REPOSITORY_URL}">public repository</a>.</p>
+  `)],
+  ['/input-contract', layout('Public Input Contract', `
+    <h2>Canonical machine-readable contract</h2>
+    <p>The <code>inputSchema</code> returned by MCP <code>tools/list</code> for <code>assess_normative_reliance</code> is the sole canonical public input contract. It declares required fields, enums, strict objects, reusable definitions and the purpose-specific <code>as_of</code> rules. Clients should validate against that schema before calling the tool.</p>
+    <p><strong>NORMS assesses records already structured and ratified. It does not create those records.</strong></p>
+    <p><strong><code>blocking: []</code> is not authorization when <code>unknown</code> or <code>unexamined</code> remain.</strong></p>
+    <h2>Validated CURRENT_OPERATIONAL fixture</h2>
+    <pre><code>${escapeHtml(JSON.stringify(PUBLIC_CURRENT_OPERATIONAL_EXAMPLE, null, 2))}</code></pre>
+    <h2>Validated COMPARATIVE_ANALYSIS fixture</h2>
+    <pre><code>${escapeHtml(JSON.stringify(PUBLIC_COMPARATIVE_ANALYSIS_EXAMPLE, null, 2))}</code></pre>
+    <p>The fixtures above are generated from the same in-repository constants validated against the canonical schema during automated tests. See the <a href="${REPOSITORY_URL}">public repository</a>.</p>
   `)],
   ['/privacy', layout('Privacy Policy', `
     <h2>Privacy Policy</h2>

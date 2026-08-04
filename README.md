@@ -4,8 +4,9 @@ Purpose-aware current reliance uses an evidence-bound condition boundary. Caller
 
 See `CONDITION_EVIDENCE_BOUNDARY.md` and `UNTRUSTED_CONDITION_ASSERTION_FALSE_POSITIVE_01.md`.
 
-**Experimental prerelease. Engine only. Not an MCP server. No I/O, network,
-persistence or transport.**
+**Experimental prerelease. The model remains pure and has no I/O, network or
+persistence. This branch also contains a minimal local, read-only MCP adapter;
+it is not a public production deployment.**
 
 Version 0.1.0 · claim-by-claim evidence: [`CLAIM_MAP.md`](./CLAIM_MAP.md) ·
 not independently verified.
@@ -13,14 +14,13 @@ not independently verified.
 The admissibility model and claim-map linter, as pure functions. No I/O, no
 network, no transport.
 
-> **This is not an MCP server.** It is the engine an MCP server would consume.
-> There is no entrypoint, no tool handler and no deployment here. `norms-mcp`,
-> the server, does not yet exist as a published artifact. The naming distinction
-> is deliberate: claiming a transport that is absent would be exactly the kind of
-> overclaim this library exists to make visible.
+> **No public MCP service is deployed.** `server/index.mjs` is a local
+> Streamable HTTP adapter exposing one read-only tool. It performs no retrieval,
+> persistence, external calls, document parsing or legal interpretation.
 
 ```bash
 npm test    # model tests + claim-map sync check; no network, no account required
+npm run start:mcp  # local server on 127.0.0.1:3000; POST /mcp, GET /healthz
 ```
 
 ---
@@ -267,7 +267,8 @@ precondition named).
 
 ## What is not here
 
-- **No MCP server.** No transport, no tool handlers, no entrypoint.
+- **No public MCP deployment.** The local adapter has no authentication,
+  persistence, external network calls or production operational controls.
 - **No persistence.** Pure functions; the caller owns storage.
 - **No `applyRevalidation` / `applyExpiry` helpers.** `revalidate` and
   `evaluateExpiry` return verdicts; the caller applies them.

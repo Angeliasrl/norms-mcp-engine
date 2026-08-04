@@ -217,11 +217,11 @@ export const claims = [
   {
     id: 'S1',
     section: 'beyond',
-    claim: 'An MCP server consuming this engine exists',
+    claim: 'A public production MCP server consuming this engine exists',
     state: 'A',
     level: null,
-    precondition: 'An entrypoint with read-only tool handlers. Not in this package.',
-    note: 'Not claimed.',
+    precondition: 'A stable public HTTPS deployment, production controls, and a resolvable MCP endpoint.',
+    note: 'Not claimed. The package contains only a locally tested read-only adapter.',
   },
   {
     id: 'S2',
@@ -259,7 +259,7 @@ export const claims = [
     claim: 'A client fetched the corpus — verifiable server-side',
     state: 'A',
     level: 2,
-    precondition: 'Per-consumer tokens and a read record, in a server that does not exist here.',
+    precondition: 'Per-consumer tokens and a read record in a deployed server; no deployment exists here.',
     note: 'Outside this package.',
   },
   {

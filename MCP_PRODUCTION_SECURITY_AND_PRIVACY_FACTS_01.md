@@ -1,6 +1,6 @@
 # MCP production security and privacy facts 01
 
-Status: pre-deployment facts; not a public privacy policy.
+Status: verified production facts; not a public privacy policy.
 
 ## Application facts
 
@@ -12,19 +12,18 @@ Status: pre-deployment facts; not a public privacy policy.
 - Invalid inputs return stable sanitized errors without stack traces or local paths.
 - Request bodies above 65,536 bytes are rejected.
 
-## Proposed infrastructure facts
+## Infrastructure facts
 
-The proposed processor is Cloudflare through a native Worker serving the `beforebabel.org` zone. `wrangler.jsonc` enables Workers observability and invocation logs with a `0.01` head sampling rate. NORMS does not intentionally record inputs or outputs. If deployed with this configuration, Cloudflare may retain sampled technical infrastructure and invocation metadata according to the active plan; actual account-specific retention, regional handling, deletion controls, access permissions, and incident process have not yet been verified and must not be described as zero retention.
+The processor is Cloudflare through the native `norms-mcp` Worker serving `norms.beforebabel.org`. `wrangler.jsonc` enables Workers observability and invocation logs with a `0.01` head sampling rate. NORMS does not intentionally record inputs or outputs. Cloudflare may retain sampled technical infrastructure and invocation metadata. The account holder confirmed Workers Paid; Cloudflare's published retention for Workers Logs on that plan is 7 days. This is not zero logging or zero retention.
 
-No application-level subprocessors beyond the selected hosting provider are configured. The intended canonical hostname is `norms.beforebabel.org`, but it is not active or verified in this preparatory state. No production region, account, plan, or log-retention period has been selected. These are manual-gate facts and must be recorded from the real Cloudflare configuration before a public privacy policy or OpenAI submission is prepared.
+No application-level subprocessors beyond Cloudflare are configured. The canonical hostname `norms.beforebabel.org` and its Cloudflare-managed HTTPS certificate were verified. The Worker runs on Cloudflare's global network; no fixed application region is configured. The deployment has no data bindings or secrets, and the application has no persistence or outbound network operation.
 
 `RATE_LIMITING_STATUS: DEFERRED_PENDING_PRODUCTION_TRAFFIC_BASELINE`. No rigid per-IP limit is introduced before representative traffic exists; request-size, CPU, schema-validation, read-only, and no-egress controls remain active.
 
-## Operational controls still required
+## Operational controls
 
-- confirm least-privilege administrative access and account ownership;
-- confirm infrastructure log fields and retention;
-- decide rate limiting or equivalent abuse protection;
-- document incident contact and deletion handling;
-- verify the deployed Worker has no bindings or secrets;
-- verify HTTPS, headers, errors, concurrency, payload limits, and rollback remotely.
+- OAuth administrative access remains outside the repository; account ownership was confirmed through the single authenticated Wrangler account.
+- Cloudflare retains sampled infrastructure logs for the plan's documented 7-day period; application payload logging is absent from source.
+- `RATE_LIMITING_STATUS: DEFERRED_PENDING_PRODUCTION_TRAFFIC_BASELINE`; review metrics before choosing a shared-IP-safe policy.
+- HTTPS, errors, concurrency, payload limits, absence of bindings/secrets, and rollback metadata were verified remotely.
+- Public incident contact and deletion-request handling remain matters for the later public policy phase.

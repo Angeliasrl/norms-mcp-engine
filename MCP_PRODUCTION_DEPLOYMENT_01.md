@@ -1,8 +1,8 @@
 # MCP production deployment 01
 
-Status: `READY_FOR_MANUAL_CLOUDFLARE_LOGIN`
+Status: `PASS_PRODUCTION_MCP_ENDPOINT`
 
-No login, Worker creation, deploy, custom domain, or DNS operation has been performed.
+Verified at `2026-08-04T15:47:05Z`. The canonical endpoint is `https://norms.beforebabel.org/mcp`; health is `https://norms.beforebabel.org/healthz`.
 
 ## Provider decision
 
@@ -28,20 +28,31 @@ npm audit
 
 The MCP SDK v1 Node adapter emits Draft-07 JSON Schema and automatically adds `execution.taskSupport = forbidden`; the MCP server v2 used by `createMcpHandler` emits semantically equivalent JSON Schema 2020-12 and omits that optional wire field. Tool name, title, description, inputs, outputs, required fields, annotations, instructions, behavior, and structured results are otherwise identical. No engine semantic change is involved.
 
-## Manual gate
+## Verified deployment
 
-An authorized operator must authenticate, select the Cloudflare account containing `beforebabel.org`, verify that Workers Paid supports the configured CPU limit, and confirm observability retention. The intended temporary hostname is the account's `norms-mcp.<subdomain>.workers.dev`; the intended canonical endpoints are `https://norms.beforebabel.org/mcp` and `https://norms.beforebabel.org/healthz`.
+- Provider: Cloudflare Workers native, global edge placement; no fixed application region selected.
+- Account: the single authenticated account containing the `beforebabel.org` zone; no email or full account identifier is recorded here.
+- Plan: Workers Paid, confirmed by the account holder.
+- Worker: `norms-mcp`.
+- Temporary verification URL: `https://norms-mcp.friva1947.workers.dev`; fully tested, then disabled in production configuration.
+- Temporary version: `c2128653-260a-4bdc-981a-050fb81722ff`, created `2026-08-04T15:44:30.371Z`.
+- Canonical custom domain: `https://norms.beforebabel.org`.
+- Canonical version: `49e16f0d-0627-4c9a-b61a-df4eb7650e83`, created `2026-08-04T15:46:34.032Z` and deployed `2026-08-04T15:46:36.695Z`.
+- Upload size: 998.65 KiB; gzip 195.47 KiB; startup time reported by deploy: 84 ms.
+- Uploaded digest: not provided by Wrangler. Reproducible dry-run `index.js` SHA-256: `621D18AF0499F5F77F6AE97D3CBD4B000131AD896AF3A15539707459B42870D8`.
+- Runtime configuration: compatibility date `2026-08-04`, `nodejs_compat`, CPU limit 1,000 ms, request limit 65,536 bytes, protocol timeout 5,000 ms.
+- Data bindings and secrets: none; `wrangler secret list` returned an empty list.
+- Observability: enabled, invocation logs persisted with head sampling `0.01`.
+- Infrastructure log retention: 7 days for Workers Paid according to Cloudflare's published Workers Logs table; the active plan was confirmed by the account holder.
 
-```text
-npx wrangler login
-npx wrangler whoami
-npx wrangler deploy
-```
+## Verification results
 
-Deployment sends the bundled Worker source and runtime dependencies to Cloudflare. It does not require the repository evidence dossiers at runtime. The public URL, region placement, deployment/version ID, uploaded bundle hash, infrastructure log retention, rate-limit policy, and rollback target remain `NOT_ESTABLISHED` until a real deployment is authorized and verified.
+The local baseline passed 162 repository tests. The local Workers runtime additionally passed 9 transport tests, 8 submission cases (5 positive and 3 fail-closed/rejected), and 3 Node/Workers parity checks.
+
+The temporary workers.dev endpoint passed the same 9 transport tests, 8 submission cases, and 3 parity checks after initial edge propagation completed. The canonical domain then passed the complete set again, plus HTTPS, certificate negotiation, health body, no redirect, non-permissive CORS, sanitized invalid call, 65,536-byte enforcement, deterministic repetition, minimal concurrency, method rejection, and unknown-path rejection. Essential metadata and structured outputs matched the local baseline. The standard `server: cloudflare` infrastructure header is present; no application framework, local path, stack trace, secret, or internal identifier is exposed.
 
 `npm audit` reports zero vulnerabilities. The lockfile applies a narrow `undici` 7.29.0 override to Wrangler/Miniflare because the otherwise selected nested 7.28.0 release is covered by published advisories. The local Workers gate is rerun against the overridden dependency.
 
-## Post-gate verification
+## Rollback
 
-After an authorized deploy, record the actual HTTPS `/mcp` and `/healthz` URLs and run the full remote checklist, including all eight submission cases and exact essential-output comparison with the local baseline. Use Cloudflare version history for rollback only after a verified prior version exists.
+The previous deployed version is `c2128653-260a-4bdc-981a-050fb81722ff`; it contains the same verified application code and differs in deployment routing state. If rollback is required, first inspect `npx wrangler deployments list`, then use `npx wrangler rollback <VERSION_ID>`. Verify `GET https://norms.beforebabel.org/healthz` immediately afterward. Redeploy the repository commit recorded by this phase to restore the canonical verified version. No engine modification is required.

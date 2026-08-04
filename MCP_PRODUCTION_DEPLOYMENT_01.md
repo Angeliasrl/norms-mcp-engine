@@ -56,3 +56,11 @@ The temporary workers.dev endpoint passed the same 9 transport tests, 8 submissi
 ## Rollback
 
 The previous deployed version is `c2128653-260a-4bdc-981a-050fb81722ff`; it contains the same verified application code and differs in deployment routing state. If rollback is required, first inspect `npx wrangler deployments list`, then use `npx wrangler rollback <VERSION_ID>`. Verify `GET https://norms.beforebabel.org/healthz` immediately afterward. Redeploy the repository commit recorded by this phase to restore the canonical verified version. No engine modification is required.
+
+## Public pages deployment
+
+Verified at `2026-08-04T17:20:56Z`. Version `339683d5-cf1a-4cd1-be8d-83f6fd6f29e8` serves the canonical website, privacy policy, terms and support pages at `/`, `/privacy`, `/terms` and `/support`. The reproducible dry-run `index.js` SHA-256 is `EBB90294892273F2A19393AAE6C34FF54B083A77559DE209CD986A4C4185913E`; Wrangler reported 1006.16 KiB uploaded and 198.17 KiB gzip with 97 ms startup time.
+
+Local Workers verification passed 9 MCP transport tests, 8 submission cases, 3 Node/Workers parity tests and 12 public-page checks. After edge propagation, the canonical domain passed the same remote sets. HTTPS returned the expected content types and security headers without redirects, cookies, scripts, trackers or external assets. `GET /.well-known/openai-apps-challenge` returns 404 while its secret is unset. `GET /mcp` remains 405, `POST /mcp` remains unchanged, `/healthz` remains 200 and unknown paths remain 404.
+
+The immediately preceding rollback target is `49e16f0d-0627-4c9a-b61a-df4eb7650e83`. The rollback procedure above applies, followed by health and MCP regression checks. The public-page deployment does not modify engine semantics, tool metadata, schemas, annotations, fail-closed behavior, bindings, logging or persistence.

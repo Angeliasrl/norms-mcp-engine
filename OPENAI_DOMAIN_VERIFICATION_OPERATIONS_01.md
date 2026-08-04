@@ -13,3 +13,5 @@ When OpenAI provides the exact challenge value:
 5. remove or rotate the secret when the publisher determines it is no longer required.
 
 The publisher must obtain the value from the OpenAI portal in a later authorized phase. This document does not assert that domain verification has occurred.
+
+Production verification on 4 August 2026 confirmed that the unset route returns HTTP 404 with no redirect. Challenge status remains `PREPARED_NOT_ACTIVATED`; no token has been obtained, stored or published.

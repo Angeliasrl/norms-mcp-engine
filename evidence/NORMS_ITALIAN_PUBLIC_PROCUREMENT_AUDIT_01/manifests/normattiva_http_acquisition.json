@@ -1,0 +1,33 @@
+[
+  {
+    "file": "normattiva_d36_2023_art10_vig_2024-03-04.html",
+    "acquired_at_utc": "2026-08-04T08:06:28.253Z",
+    "url": "https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2023-03-31;36~art10!vig=2024-03-04",
+    "status": 200,
+    "content_type": "text/html; charset=UTF-8",
+    "content_length": 338398,
+    "sha256": "861553fbe139a0acded1bf2714986a024ed93259474389f889ed9bf1546c1958",
+    "version_requested": "vig=2024-03-04"
+  },
+  {
+    "file": "normattiva_d36_2023_art100_vig_2024-03-04.html",
+    "acquired_at_utc": "2026-08-04T08:06:28.730Z",
+    "url": "https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2023-03-31;36~art100!vig=2024-03-04",
+    "status": 200,
+    "content_type": "text/html; charset=UTF-8",
+    "content_length": 349008,
+    "sha256": "20170ea91d03365f2c059f52375b22128dc6e2a6a5c2a300d2b960f42ca0b34f",
+    "version_requested": "vig=2024-03-04"
+  },
+  {
+    "file": "normattiva_d36_2023_allegato_II_12_art18_vig_2024-03-04.html",
+    "acquired_at_utc": "2026-08-04T08:09:57.3681230Z",
+    "url": "https://www.normattiva.it/atto/caricaArticolo?art.versione=1&art.idGruppo=57&art.flagTipoArticolo=27&art.codiceRedazionale=23G00044&art.idArticolo=18&art.idSottoArticolo=1&art.idSottoArticolo1=10&art.dataPubblicazioneGazzetta=2023-03-31&art.progressivo=0&",
+    "status": 200,
+    "content_type": "text/html; charset=UTF-8",
+    "content_length": 22164,
+    "sha256": "d73e45a7c2f602a47431f3a5739bfc8660d4fba250daf4bf48c49ea60f1dd8db",
+    "version_requested": "historical index vig=2024-03-04; Normattiva fragment version=1",
+    "session_note": "Fragment acquired in the same Normattiva web session as the historical index; no script or active content was executed."
+  }
+]

@@ -1,0 +1,22 @@
+EXTRACTION SCOPE
+Official source: Normattiva
+Requested historical date: 2024-03-04
+Extraction method: HTML DOM text, bodyTesto; no script or active content executed
+This file contains only the candidate segments used by ANAC opinion no. 225/2024.
+
+===== D.LGS. 36/2023 — ARTICLE 10, PARAGRAPH 3 =====
+Source page version label: Testo in vigore dal: 1-4-2023
+
+3. Fermi i necessari requisiti di abilitazione all'esercizio dell'attività professionale, le stazioni appaltanti e gli enti concedenti possono introdurre requisiti speciali, di carattere economico-finanziario e tecnico-professionale, attinenti e proporzionati all'oggetto del contratto, tenendo presente l'interesse pubblico al più ampio numero di potenziali concorrenti e favorendo, purché sia compatibile con le prestazioni da acquisire e con l'esigenza di realizzare economie di scala funzionali alla riduzione della spesa pubblica, l'accesso al mercato e la possibilità di crescita delle micro, piccole e medie imprese.
+
+===== D.LGS. 36/2023 — ARTICLE 100, PARAGRAPHS 2 AND 4 =====
+Source page version label: Testo in vigore dal: 1-4-2023 al: 30-12-2024
+
+2. Le stazioni appaltanti richiedono requisiti di partecipazione proporzionati e attinenti all'oggetto dell'appalto.
+
+4. Per le procedure di aggiudicazione di appalti di lavori di importo pari o superiore a 150.000 euro le stazioni appaltanti richiedono che gli operatori economici siano qualificati. L'attestazione di qualificazione è rilasciata da organismi di diritto privato autorizzati dall'ANAC. Il sistema di qualificazione per gli esecutori di lavori pubblici, articolato in rapporto alle categorie di opere ed all'importo delle stesse è disciplinato dall'allegato II.12. Le categorie di opere si distinguono in categorie di opere generali e categorie di opere specializzate. Il possesso di attestazione di qualificazione in categorie e classifiche adeguate ai lavori da appaltare rappresenta condizione necessaria e sufficiente per la dimostrazione dei requisiti di partecipazione di cui al presente articolo nonché per l'esecuzione, a qualsiasi titolo, dell'appalto. In sede di prima applicazione del codice l'allegato II.12 è abrogato a decorrere dalla data di entrata in vigore di un corrispondente regolamento emanato ai sensi dell'articolo 17, comma 1, della legge 23 agosto 1988, n. 400, su proposta del Ministro delle infrastrutture e dei trasporti, sentita l'ANAC, che lo sostituisce integralmente anche in qualità di allegato al codice.
+
+===== D.LGS. 36/2023 — ANNEX II.12, ARTICLE 18, PARAGRAPH 21 =====
+Source page version label: Testo in vigore dal: 1-4-2023
+
+21. L'impresa qualificata nella categoria OG 11 può eseguire i lavori in ciascuna delle categorie OS 3, OS 28 e OS 30 per la classifica corrispondente a quella posseduta. I certificati di esecuzione dei lavori relativi alla categoria OG 11 indicano, oltre all'importo complessivo dei lavori riferito alla categoria OG 11, anche gli importi dei lavori riferiti a ciascuna delle suddette categorie di opere specializzate e sono utilizzati unicamente per la qualificazione nella categoria OG 11. Ai fini dell'individuazione delle categorie nella fase di progetto e successivo bando o avviso di gara o lettera di invito, un insieme di lavorazioni è definito come appartenente alla categoria OG 11 qualora dette lavorazioni siano riferibili a ciascuna delle categorie specializzate OS 3, OS 28 e OS 30; l'importo di ciascuna di tali categorie di opere specializzate, così individuate, deve essere pari almeno alla percentuale di seguito indicata dell'importo globale delle lavorazioni attinenti alla categoria OG 11: a) categoria OS 3: 10 per cento; b) categoria OS 28: 25 per cento; c) categoria OS 30: 25 per cento.

@@ -22,6 +22,7 @@
     "test:audit-02": "node test/italian-public-procurement-audit-02-direct-award-threshold.mjs",
     "test:mcp": "node test/mcp-server-transport.mjs && node test/mcp-submission-cases.mjs",
     "test:worker": "node test/cloudflare-worker-local.mjs",
+    "test:public-pages": "node test/public-pages-worker.mjs",
     "build:claimmap": "node scripts/build-claimmap.mjs"
   },
   "engines": {

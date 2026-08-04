@@ -38,6 +38,7 @@ try {
   await runNodeTest('test/mcp-server-transport.mjs');
   await runNodeTest('test/mcp-submission-cases.mjs');
   await runNodeTest('test/cloudflare-runtime-parity.mjs');
+  await runNodeTest('test/public-pages-worker.mjs');
   console.log('Cloudflare Workers local gate: PASS');
 } finally {
   if (wrangler.exitCode === null) {

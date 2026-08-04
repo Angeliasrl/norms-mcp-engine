@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/server';
 import { createMcpHandler } from 'agents/mcp/server';
 
 import { SERVER_INSTRUCTIONS, registerNormsTool } from '../server/norms-tool.mjs';
+import { publicPageResponse } from './public-pages.mjs';
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -68,6 +69,8 @@ async function boundedRequest(request) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const publicResponse = publicPageResponse(url.pathname, request.method, env);
+    if (publicResponse !== null) return publicResponse;
     if (url.pathname === '/healthz') {
       if (request.method !== 'GET') {
         return protocolError(405, -32000, 'Method not allowed. Use GET /healthz.');

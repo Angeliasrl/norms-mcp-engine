@@ -86,6 +86,7 @@ export async function startNormsMcpServer({
     httpServer,
     host,
     port: httpServer.address().port,
+    baseUrl: `http://${host}:${httpServer.address().port}`,
     close: () => new Promise((resolve, reject) => {
       httpServer.close((error) => error ? reject(error) : resolve());
     }),

@@ -121,12 +121,7 @@ const summaryText = (assessment) => [
   'This is a bounded structured assessment, not legal advice or a general compliance determination.',
 ].join(' ');
 
-export function createNormsMcpServer() {
-  const server = new McpServer(
-    { name: 'norms-structured-applicability', version: '0.1.0' },
-    { instructions: SERVER_INSTRUCTIONS },
-  );
-
+export function registerNormsTool(server) {
   server.registerTool(
     TOOL_NAME,
     {
@@ -164,4 +159,13 @@ export function createNormsMcpServer() {
   );
 
   return server;
+}
+
+export function createNormsMcpServer() {
+  const server = new McpServer(
+    { name: 'norms-structured-applicability', version: '0.1.0' },
+    { instructions: SERVER_INSTRUCTIONS },
+  );
+
+  return registerNormsTool(server);
 }

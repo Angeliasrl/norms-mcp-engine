@@ -3,10 +3,13 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 
 import { startNormsMcpServer } from '../server/index.mjs';
 
-export async function withMcpClient(run) {
-  const running = await startNormsMcpServer({ port: 0 });
+export async function withMcpClient(run, { baseUrl = process.env.MCP_BASE_URL } = {}) {
+  const running = baseUrl
+    ? { baseUrl: baseUrl.replace(/\/$/, ''), close: async () => {} }
+    : await startNormsMcpServer({ port: 0 });
+  running.baseUrl ??= `http://${running.host}:${running.port}`;
   const transport = new StreamableHTTPClientTransport(
-    new URL(`http://${running.host}:${running.port}/mcp`),
+    new URL(`${running.baseUrl}/mcp`),
   );
   const client = new Client({ name: 'norms-mcp-test-client', version: '0.1.0' });
   try {

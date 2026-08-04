@@ -17,9 +17,11 @@
   },
   "scripts": {
     "start:mcp": "node server/index.mjs",
+    "dev:worker": "wrangler dev --local",
     "test": "node test/suite.mjs && node test/condition-evidence.mjs && node test/procurement-deterministic-applicability-negative-matrix.mjs && node test/procurement-deterministic-applicability-positive-synthetic.mjs && node test/italian-public-procurement-audit-02-direct-award-threshold.mjs && node test/mcp-server-transport.mjs && node test/mcp-submission-cases.mjs && node scripts/build-claimmap.mjs --check",
     "test:audit-02": "node test/italian-public-procurement-audit-02-direct-award-threshold.mjs",
     "test:mcp": "node test/mcp-server-transport.mjs && node test/mcp-submission-cases.mjs",
+    "test:worker": "node test/cloudflare-worker-local.mjs",
     "build:claimmap": "node scripts/build-claimmap.mjs"
   },
   "engines": {
@@ -41,6 +43,15 @@
   "author": "Francesco Riva — Angelia srl SB",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "agents": "^0.20.1",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260804.1",
+    "wrangler": "^4.118.0"
+  },
+  "overrides": {
+    "undici": "7.29.0"
   }
 }

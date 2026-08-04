@@ -80,13 +80,13 @@ await withMcpClient(async ({ client, running }) => {
   });
 
   await test('health endpoint is bounded and contains no operational detail', async () => {
-    const response = await fetch(`http://${running.host}:${running.port}/healthz`);
+    const response = await fetch(`${running.baseUrl}/healthz`);
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { status: 'ok' });
   });
 
   await test('request bodies above the explicit limit are rejected cleanly', async () => {
-    const response = await fetch(`http://${running.host}:${running.port}/mcp`, {
+    const response = await fetch(`${running.baseUrl}/mcp`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ oversized: 'x'.repeat(70_000) }),

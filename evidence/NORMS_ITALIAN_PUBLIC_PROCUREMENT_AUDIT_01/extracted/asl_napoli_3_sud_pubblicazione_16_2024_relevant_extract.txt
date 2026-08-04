@@ -1,0 +1,23 @@
+SOURCE: ASL Napoli 3 Sud, Pubblicazione n. 16 del 07.02.2024
+RAW FILE: raw/asl_napoli_3_sud_pubblicazione_16_2024.pdf
+EXTRACTION: pypdf 6.10.2, non-interactive, relevant segment only
+PDF STRUCTURE: 3 pages; not encrypted; no /OpenAction, /AA or /Names detected
+No attachment, action, link, script or active content was executed.
+
+===== PAGE 1 — PUBLICATION METADATA =====
+
+PUBBLICAZIONE N. 16 DEL 07.02.2024
+
+The publication states that the listed deliberations, adopted on 7 February 2024, were published in the electronic notice board for fifteen consecutive days beginning on the adoption date.
+
+===== PAGE 2 — RELEVANT ENTRY =====
+
+7 PROPOSTA N. 1612/2024
+U.O.C. VALORIZZAZIONE E MANUTENZIONE PATRIMONIO IMMOBILIARE
+TIPO PROPOSTA: DELIBERA DEL DIRETTORE GENERALE
+DELIBERA N. 188
+ESITO DELIBERA: Adottato
+
+OGGETTO: PROGRAMMA PER IL SUPERAMENTO DEGLI OSPEDALI PSICHIATRICI GIUDIZIARI DELLA REGIONE CAMPANIA - "LAVORI DI REALIZZAZIONE DEL NUOVO REPARTO PER IL SERVIZIO PSICHIATRICO DI DIAGNOSI E CURA S.P.D.C. PRESSO IL P.O. DI BOSCOTRECASE" CUP: D24E20003390003 - APPROVAZIONE DEL PROGETTO ESECUTIVO ED INDIZIONE DI UNA PROCEDURA DI GARA NEGOZIATA PER L'AFFIDAMENTO DELL'ESECUZIONE DEI LAVORI
+
+BOUNDARY: this is the official publication list, not the full text of Deliberation 188 and not any project or tender attachment.

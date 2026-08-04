@@ -64,3 +64,11 @@ Verified at `2026-08-04T17:20:56Z`. Version `339683d5-cf1a-4cd1-be8d-83f6fd6f29e
 Local Workers verification passed 9 MCP transport tests, 8 submission cases, 3 Node/Workers parity tests and 12 public-page checks. After edge propagation, the canonical domain passed the same remote sets. HTTPS returned the expected content types and security headers without redirects, cookies, scripts, trackers or external assets. `GET /.well-known/openai-apps-challenge` returns 404 while its secret is unset. `GET /mcp` remains 405, `POST /mcp` remains unchanged, `/healthz` remains 200 and unknown paths remain 404.
 
 The immediately preceding rollback target is `49e16f0d-0627-4c9a-b61a-df4eb7650e83`. The rollback procedure above applies, followed by health and MCP regression checks. The public-page deployment does not modify engine semantics, tool metadata, schemas, annotations, fail-closed behavior, bindings, logging or persistence.
+
+## Typed public input contract deployment
+
+Version `61cd9543-5eed-4273-a1f0-3981b8acc410` was created at `2026-08-04T19:01:06.020Z` and deployed at `2026-08-04T19:01:08.772Z`. It publishes the canonical typed `inputSchema` and `/input-contract` page from repository commit `94eea8bf95dbd0391f5d0ae0d3c33ce0fa90f720`.
+
+Wrangler reported 1020.31 KiB uploaded, 201.19 KiB gzip and 99 ms startup time. The reproducible dry-run `index.js` SHA-256 is `1192CF1FA2189F637990326A2180893ADB1D4EC0CE21669B53BC4D69B3722256`. The immediately preceding rollback target is `339683d5-cf1a-4cd1-be8d-83f6fd6f29e8`.
+
+After normal edge convergence, the canonical domain passed 14 typed-contract tests, 9 transport tests, 8 submission cases, 3 Node/Workers semantic-parity checks and 19 public-page checks. The remote schema retained one tool, strict decision objects, reusable definitions/references and three purpose-specific `as_of` branches. Invalid enums, missing required fields and unknown properties were rejected with recoverable paths and sanitized messages. Engine source, output schema, annotations and fail-closed semantics were unchanged.

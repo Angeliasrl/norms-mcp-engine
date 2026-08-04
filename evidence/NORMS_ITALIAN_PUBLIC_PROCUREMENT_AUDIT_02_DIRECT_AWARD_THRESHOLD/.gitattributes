@@ -1,0 +1,3 @@
+# Preserve acquired source bytes and keep raw responses out of textual diffs.
+raw/*.html -text -diff
+raw/*.pdf -text -diff

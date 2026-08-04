@@ -16,7 +16,7 @@
     "./claimmap": "./src/claimmap.js"
   },
   "scripts": {
-    "test": "node test/suite.mjs && node test/condition-evidence.mjs && node test/procurement-deterministic-applicability-negative-matrix.mjs && node scripts/build-claimmap.mjs --check",
+    "test": "node test/suite.mjs && node test/condition-evidence.mjs && node test/procurement-deterministic-applicability-negative-matrix.mjs && node test/procurement-deterministic-applicability-positive-synthetic.mjs && node scripts/build-claimmap.mjs --check",
     "build:claimmap": "node scripts/build-claimmap.mjs"
   },
   "engines": {

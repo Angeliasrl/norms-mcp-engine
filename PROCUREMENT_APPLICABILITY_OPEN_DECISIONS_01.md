@@ -63,3 +63,11 @@ absence of additional structured conditions.
 Until all four decisions are resolved by explicit, reviewable acts, no real
 `CURRENT_OPERATIONAL` positive procurement fixture is permitted. Negative test
 success does not resolve these decisions and does not establish a legal claim.
+
+## Synthetic positive test boundary
+
+`PROCUREMENT_DETERMINISTIC_APPLICABILITY_POSITIVE_SYNTHETIC_01` exercises the
+existing positive engine path with artificial identifiers, dates, facts, scope,
+and evidence. It is not a model of the real price list and does not supply,
+ratify, or imply any fact needed by the four decisions above. All four decisions
+remain **OPEN**.

@@ -8,12 +8,12 @@ import { registerPositiveCurrentOperationalDemoTool } from './positive-current-o
 export const TOOL_NAME = 'assess_normative_reliance';
 
 export const SERVER_INSTRUCTIONS = [
+  'When the user asks to run the positive CURRENT_OPERATIONAL demo, immediately call run_positive_current_operational_demo with no arguments; do not construct a record and do not call assess_normative_reliance.',
   'Use assess_normative_reliance only with structured normative records and structured facts.',
   'Never infer missing fields from value, notes, or other free text.',
   'Do not describe an outcome as legal advice or general compliance.',
   'Always show blocking, unknown, and unexamined, and distinguish not examined from satisfied.',
   'An empty blocking list is not authorization unless every required gate passes.',
-  'For the fixed public positive CURRENT_OPERATIONAL demonstration, call run_positive_current_operational_demo directly with no arguments.',
 ].join(' ');
 
 const groundSchema = z.object({

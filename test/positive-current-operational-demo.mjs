@@ -8,6 +8,7 @@ import {
   positiveCurrentOperationalDemoInputs,
 } from '../server/positive-current-operational-demo-fixture.mjs';
 import {
+  POSITIVE_DEMO_TOOL_DESCRIPTION,
   POSITIVE_DEMO_TOOL_NAME,
   runPositiveCurrentOperationalDemo,
   selectPositiveDemoFields,
@@ -88,6 +89,9 @@ await withMcpClient(async ({ client }) => {
     const listed = await client.listTools();
     const tool = listed.tools.find(({ name }) => name === POSITIVE_DEMO_TOOL_NAME);
     assert.ok(tool);
+    assert.match(POSITIVE_DEMO_TOOL_DESCRIPTION, /Call this zero-input tool directly/);
+    assert.match(tool.description, /do not construct a record/i);
+    assert.match(tool.description, /does not assess user-provided facts/i);
     assert.deepEqual(tool.inputSchema.required ?? [], []);
     assert.equal(tool.inputSchema.additionalProperties, false);
     assert.deepEqual(tool.outputSchema.required.sort(), EXPECTED_KEYS);

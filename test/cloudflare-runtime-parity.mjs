@@ -45,7 +45,10 @@ try {
     normalizeSchemaDialect(await worker.client.listTools()),
     normalizeSchemaDialect(await node.client.listTools()),
   );
-  assert.deepEqual((await worker.client.listTools()).tools[0].annotations, {
+  const workerAssessmentTool = (await worker.client.listTools()).tools.find(
+    ({ name }) => name === 'assess_normative_reliance',
+  );
+  assert.deepEqual(workerAssessmentTool.annotations, {
     readOnlyHint: true,
     destructiveHint: false,
     openWorldHint: false,

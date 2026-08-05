@@ -28,11 +28,11 @@ console.log('\nNORMS MCP — canonical public input contract\n');
 
 await withMcpClient(async ({ client }) => {
   const listed = await client.listTools();
-  const [tool] = listed.tools;
+  const tool = listed.tools.find(({ name }) => name === 'assess_normative_reliance');
   const schema = tool.inputSchema;
 
-  await test('one public tool exposes a strict typed schema with reusable definitions', async () => {
-    assert.equal(listed.tools.length, 1);
+  await test('assessment tool retains its strict typed schema with reusable definitions', async () => {
+    assert.equal(listed.tools.length, 2);
     assert.equal(tool.name, 'assess_normative_reliance');
     assert.equal(schema.additionalProperties, false);
     assert.equal(schema.oneOf.length, 3);

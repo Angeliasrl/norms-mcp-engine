@@ -8,7 +8,7 @@ Status: deployed read-only implementation.
 - Version: `0.1.0`
 - Transport: Streamable HTTP
 - Local endpoint: `POST /mcp`
-- Tools exposed: exactly one
+- Tools exposed: two read-only tools
 
 Server instructions require structured records and facts, forbid inference from
 free text and general legal-compliance claims, require display of `blocking`,
@@ -92,3 +92,21 @@ or inferred assessment. Unexpected handler failures use
 
 This contract is an assessment interface, not legal advice or certification of
 overall compliance.
+
+## Fixed positive CURRENT_OPERATIONAL demo
+
+Name: `run_positive_current_operational_demo`
+
+This zero-input, read-only wrapper runs the immutable, versioned
+`POSITIVE_CURRENT_OPERATIONAL_DEMO_01` fixture through the same canonical
+`assessRelianceForPurpose` engine used by `assess_normative_reliance`. The
+fixture contains only invented identifiers, proof references, digests, scope
+dimensions and an open-ended synthetic interval. Its trusted external
+evaluation is synthetic, ratified, identity-matched and present in the fixed
+trust registry.
+
+The tool does not accept user facts and does not retrieve, interpret or certify
+anything about the real world. It returns only `authorizes_current_operational`,
+`admissible`, `blocking`, `unknown` and `unexamined`; their values are projected
+from the canonical engine result rather than encoded as a demonstration
+verdict.

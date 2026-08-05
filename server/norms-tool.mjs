@@ -3,6 +3,7 @@ import * as z from 'zod/v4';
 
 import { ModelError, assessRelianceForPurpose } from '../src/model.js';
 import { publicInputSchema } from './public-input-contract.mjs';
+import { registerPositiveCurrentOperationalDemoTool } from './positive-current-operational-demo-tool.mjs';
 
 export const TOOL_NAME = 'assess_normative_reliance';
 
@@ -12,6 +13,7 @@ export const SERVER_INSTRUCTIONS = [
   'Do not describe an outcome as legal advice or general compliance.',
   'Always show blocking, unknown, and unexamined, and distinguish not examined from satisfied.',
   'An empty blocking list is not authorization unless every required gate passes.',
+  'For the fixed public positive CURRENT_OPERATIONAL demonstration, call run_positive_current_operational_demo directly with no arguments.',
 ].join(' ');
 
 const groundSchema = z.object({
@@ -135,7 +137,7 @@ export function registerNormsTool(server) {
     },
   );
 
-  return server;
+  return registerPositiveCurrentOperationalDemoTool(server);
 }
 
 export function createNormsMcpServer() {

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { SERVER_INSTRUCTIONS, TOOL_NAME } from '../server/norms-tool.mjs';
+import { POSITIVE_DEMO_TOOL_NAME } from '../server/positive-current-operational-demo-tool.mjs';
 import { callAssessment, toolArgumentsFromFixture, withMcpClient } from './mcp-test-helpers.mjs';
 
 const fixture = JSON.parse(readFileSync(new URL(
@@ -25,13 +26,15 @@ await withMcpClient(async ({ client, running }) => {
   });
 
   const listed = await client.listTools();
-  await test('tools/list exposes exactly one tool', async () => {
-    assert.equal(listed.tools.length, 1);
-    assert.equal(listed.tools[0].name, TOOL_NAME);
+  await test('tools/list exposes the assessment and fixed positive-demo tools', async () => {
+    assert.deepEqual(listed.tools.map(({ name }) => name).sort(), [
+      POSITIVE_DEMO_TOOL_NAME,
+      TOOL_NAME,
+    ].sort());
   });
 
   await test('tool metadata, schemas, and annotations are complete', async () => {
-    const tool = listed.tools[0];
+    const tool = listed.tools.find(({ name }) => name === TOOL_NAME);
     assert.equal(tool.title, 'Assess normative reliance');
     assert.equal(tool.annotations.readOnlyHint, true);
     assert.equal(tool.annotations.openWorldHint, false);

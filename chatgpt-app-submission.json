@@ -1,5 +1,5 @@
 {
-  "$schema": "https://developers.openai.com/plugins/schemas/chatgpt-app-submission.v1.json",
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
   "schema_version": 1,
   "app_info": {
     "display_name": "NORMS: Evidence & Scope",
@@ -63,12 +63,6 @@
       "user_prompt": "Using the structured Audit 02 fixture, assess only whether SUPPLY and EUR 12,816 excluding VAT satisfy the ratified type-and-threshold predicate at 2024-01-27. Do not assess overall legality.",
       "tools_triggered": "assess_normative_reliance",
       "expected_output": "The limited modeled predicate is positive; the response makes no statement about overall legality or compliance."
-    },
-    {
-      "description": "Repeat the same complete structured assessment to confirm deterministic output.",
-      "user_prompt": "Run the same complete structured assessment twice and compare the full MCP results.",
-      "tools_triggered": "assess_normative_reliance",
-      "expected_output": "The two complete structured tool results are deeply identical."
     }
   ],
   "negative_test_cases": [

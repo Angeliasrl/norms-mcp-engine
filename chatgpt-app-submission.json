@@ -1,0 +1,94 @@
+{
+  "$schema": "https://developers.openai.com/plugins/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "NORMS: Evidence & Scope",
+    "subtitle": "Structured evidence checks",
+    "description": "NORMS assesses whether structured, ratified normative records have sufficient verified grounds for a declared purpose. It checks explicit authority, temporal applicability, scope, verification, provision segmentation and structured conditions, then reports blockers, unknowns and unexamined areas. Missing or unverified required grounds fail closed. NORMS does not provide legal advice, certify compliance, parse PDFs or documents, retrieve laws, infer normative conditions from free text, approve contracts or modify external data.",
+    "category": "DEVELOPER_TOOLS"
+  },
+  "tools": {
+    "assess_normative_reliance": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "The tool computes an assessment from structured input and returns results without creating, updating or deleting data.",
+        "open_world_justification": "The tool does not retrieve external information, call third-party services or change publicly visible state.",
+        "destructive_justification": "The tool performs no write, delete, send, publish or other irreversible operation."
+      }
+    },
+    "run_positive_current_operational_demo": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "The tool runs a fixed public synthetic example through the canonical NORMS engine and returns five demonstration fields without creating, updating or deleting data.",
+        "open_world_justification": "The tool uses only its immutable versioned synthetic fixture and does not retrieve external information or call third-party services.",
+        "destructive_justification": "The tool performs no write, delete, send, publish or other irreversible operation. It does not assess user-provided facts or certify real-world compliance."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Run the fixed public synthetic positive CURRENT_OPERATIONAL example through the canonical NORMS engine and return only the five demonstration fields.",
+      "user_prompt": "Run the positive CURRENT_OPERATIONAL demo and show only:\n\nauthorizes_current_operational\nadmissible\nblocking\nunknown\nunexamined",
+      "tools_triggered": "run_positive_current_operational_demo",
+      "expected_output": "authorizes_current_operational is true, admissible is true, blocking is empty, unknown is empty, and unexamined is false, with no additional fields or explanation."
+    },
+    {
+      "description": "Assess a complete, ratified CURRENT_OPERATIONAL record and expose every decision boundary in the structured result.",
+      "user_prompt": "Assess this complete, ratified record for CURRENT_OPERATIONAL reliance at the supplied as_of date. Show the limited authorization result and always list blocking, unknown and unexamined.",
+      "tools_triggered": "assess_normative_reliance",
+      "expected_output": "The assessment authorizes the limited CURRENT_OPERATIONAL purpose with admissible and eligible true, blocking and unknown empty, and unexamined false."
+    },
+    {
+      "description": "Evaluate an explicitly structured atomic condition using its verified fact and engine-derived predicate result.",
+      "user_prompt": "Evaluate whether this explicitly structured atomic condition is satisfied by the verified fact supplied in the record. Do not use the value field as evidence.",
+      "tools_triggered": "assess_normative_reliance",
+      "expected_output": "The condition is satisfied from the atomic fact with an ENGINE_DERIVED basis; free text does not contribute."
+    },
+    {
+      "description": "Evaluate temporal applicability when the declared assessment date is inside the structured provision interval.",
+      "user_prompt": "Assess this ratified record at the supplied date and explain whether that date is within its structured applicability interval.",
+      "tools_triggered": "assess_normative_reliance",
+      "expected_output": "applicability_matches is true and the remaining authorization gates stay explicit in the result."
+    },
+    {
+      "description": "Assess the minimized Italian public fixture only for its structured supply-type and strictly-below-threshold predicate, without assessing overall legality.",
+      "user_prompt": "Using the structured Audit 02 fixture, assess only whether SUPPLY and EUR 12,816 excluding VAT satisfy the ratified type-and-threshold predicate at 2024-01-27. Do not assess overall legality.",
+      "tools_triggered": "assess_normative_reliance",
+      "expected_output": "The limited modeled predicate is positive; the response makes no statement about overall legality or compliance."
+    },
+    {
+      "description": "Repeat the same complete structured assessment to confirm deterministic output.",
+      "user_prompt": "Run the same complete structured assessment twice and compare the full MCP results.",
+      "tools_triggered": "assess_normative_reliance",
+      "expected_output": "The two complete structured tool results are deeply identical."
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "An otherwise complete record with UNKNOWN authority must fail closed even when its blocker list is empty.",
+      "user_prompt": "Assess the otherwise complete record with authority_status UNKNOWN. Do not treat an empty blocking list as authorization.",
+      "tools_triggered": "assess_normative_reliance",
+      "expected_output": "No CURRENT_OPERATIONAL authorization; unknown includes authority.unknown and unexamined remains true."
+    },
+    {
+      "description": "A record without a selected normative provision must not fall back to the whole instrument.",
+      "user_prompt": "Assess this structured instrument after the selected normative provision has been removed.",
+      "tools_triggered": "assess_normative_reliance",
+      "expected_output": "The assessment fails closed and reports the selected provision as missing; it does not authorize reliance."
+    },
+    {
+      "description": "A required atomic fact appearing only in display text must not be inferred as structured evidence.",
+      "user_prompt": "Assess this record where the required fact is absent from the structured facts and appears only in the value field.",
+      "tools_triggered": "assess_normative_reliance",
+      "expected_output": "The call is rejected or fails closed with the missing condition fact reported; the value field does not authorize the record."
+    }
+  ]
+}

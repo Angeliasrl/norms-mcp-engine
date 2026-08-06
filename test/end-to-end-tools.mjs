@@ -21,6 +21,18 @@ assert.equal((await resolveNormativeEvidence(locator, fake())).ready_for_norms, 
 let result = await auditNormativeReliance(args, fake(), assess);
 assert.equal(coreCalls, 1); assert.equal(result.normative_assessment.purpose_assessment.admissible, true);
 
+const volatilePackage = structuredClone(packageValue);
+volatilePackage.observability = { acquisition_duration_ms: 42 };
+volatilePackage.acquisition_receipts = [{ acquired_at_utc: '2026-08-06T12:00:00Z', duration_ms: 42, byte_sha256: 'c'.repeat(64) }];
+const volatileProjection = structuredClone(volatilePackage);
+delete volatileProjection.observability;
+delete volatileProjection.acquisition_receipts[0].acquired_at_utc;
+delete volatileProjection.acquisition_receipts[0].duration_ms;
+const volatileCanonicalJson = JSON.stringify(stable(volatileProjection));
+const volatileResponse = { ...positive, evidence_package: volatilePackage, package_canonical_json: volatileCanonicalJson, package_sha256: createHash('sha256').update(volatileCanonicalJson).digest('hex') };
+result = await auditNormativeReliance(args, fake(volatileResponse), assess);
+assert.equal(result.normative_assessment.purpose_assessment.admissible, true);
+
 for (const [mutation, code] of [
   [(v) => { v.ready_for_norms = false; }, 'RESOLUTION_NOT_PUBLIC_RESOLVED'],
   [(v) => { v.audit_level = 'DOCUMENT_ONLY'; }, 'RESOLUTION_NOT_PUBLIC_RESOLVED'],

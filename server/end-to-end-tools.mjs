@@ -18,6 +18,13 @@ const auditInput = locator.extend({
 });
 
 function stable(value) { if (Array.isArray(value)) return value.map(stable); if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map((k) => [k, stable(value[k])])); return value; }
+function packageHashProjection(value) {
+  const projected = structuredClone(value);
+  delete projected.observability;
+  for (const receipt of projected.acquisition_receipts ?? []) { delete receipt.acquired_at_utc; delete receipt.duration_ms; }
+  for (const snapshot of projected.snapshot_references ?? []) delete snapshot.created;
+  return projected;
+}
 async function sha256Text(value) { const bytes = new TextEncoder().encode(value); return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((b) => b.toString(16).padStart(2, '0')).join(''); }
 function fail(code, resolution = null) { return { evidence_resolution: resolution, normative_assessment: null, blocking: [code], unknown: [], unexamined: true, limitations: ['NORMS_CORE_NOT_CALLED'] }; }
 function resolutionView(r) { return { canonical_citation: r.canonical_citation, sources: r.evidence_sources, matching: r.matching, corroboration: r.corroboration, temporal_evidence: r.temporal_evidence, blocking: r.blocking, unknown: r.unknown, unexamined: r.unexamined, audit_level: r.audit_level, ready_for_norms: r.ready_for_norms, evidence_package_hash: r.package_sha256, resolution_fingerprint: r.resolution_fingerprint }; }
@@ -36,7 +43,7 @@ export async function auditNormativeReliance(args, resolverClient, assess = asse
   if ((resolved.blocking?.length ?? 0) || (resolved.contradiction_ledger?.length ?? 0)) return fail('RESOLUTION_BLOCKED', view);
   if (!/^[0-9a-f]{64}$/.test(resolved.package_sha256 ?? '') || typeof resolved.package_canonical_json !== 'string') return fail('EVIDENCE_PACKAGE_HASH_INVALID', view);
   let canonicalPackage; try { canonicalPackage = JSON.parse(resolved.package_canonical_json); } catch { return fail('EVIDENCE_PACKAGE_HASH_INVALID', view); }
-  if (JSON.stringify(stable(canonicalPackage)) !== JSON.stringify(stable(resolved.evidence_package)) || await sha256Text(resolved.package_canonical_json) !== resolved.package_sha256) return fail('EVIDENCE_PACKAGE_HASH_INVALID', view);
+  if (JSON.stringify(stable(canonicalPackage)) !== JSON.stringify(stable(packageHashProjection(resolved.evidence_package))) || await sha256Text(resolved.package_canonical_json) !== resolved.package_sha256) return fail('EVIDENCE_PACKAGE_HASH_INVALID', view);
   const payload = { entry: structuredClone(args.entry_assertions), context: structuredClone(args.context), reliance_purpose: args.reliance_purpose, ...(args.as_of ? { as_of: args.as_of } : {}), ...(args.trusted_external_evaluations ? { trusted_external_evaluations: structuredClone(args.trusted_external_evaluations) } : {}) };
   const validated = publicInputSchema.safeParse(payload); if (!validated.success) return fail('NORMS_PAYLOAD_INVALID', view);
   const assessment = assess(validated.data);

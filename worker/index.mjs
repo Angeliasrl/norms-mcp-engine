@@ -48,9 +48,12 @@ const protocolError = (status, code, message) => Response.json(
 );
 
 const createWorkerMcpServer = (env) => registerNormsTool(new McpServer(
-  { name: 'norms-structured-applicability', version: '0.2.0' },
+  { name: 'norms-structured-applicability', version: '0.2.1' },
   { instructions: SERVER_INSTRUCTIONS },
-), { resolverClient: resolverClientFromEnv(env) });
+), {
+  resolverClient: resolverClientFromEnv(env),
+  enableAttachmentProbe: env.ENVIRONMENT === 'preview' && env.PDF_ATTACHMENT_PROBE_ENABLED === 'true',
+});
 
 async function handleWithTimeout(request, env, ctx) {
   const timeoutMs = requestTimeoutMs(env);

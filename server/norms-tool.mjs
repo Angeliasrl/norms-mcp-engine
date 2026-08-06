@@ -10,7 +10,7 @@ import {
   resolveServerTrustedExternalEvaluations,
 } from './trusted-external-evaluation-boundary.mjs';
 import { registerEndToEndTools } from './end-to-end-tools.mjs';
-import { registerPdfUploadTools } from './pdf-upload-tools.mjs';
+import { registerAttachmentDiagnosticTool, registerPdfUploadTools } from './pdf-upload-tools.mjs';
 import { resolverClientFromEnv } from './resolver-client.mjs';
 
 export const TOOL_NAME = 'assess_normative_reliance';
@@ -160,15 +160,17 @@ export function registerNormsTool(server, options = {}) {
 
   registerPositiveCurrentOperationalDemoTool(server);
   if (options.resolverClient) registerEndToEndTools(server, options);
-  if (options.uploadClient && options.subjectProvider && options.auditPipeline) {
+  if (options.uploadClient && options.auditPipeline) {
     registerPdfUploadTools(server, options);
+  } else if (options.enableAttachmentProbe) {
+    registerAttachmentDiagnosticTool(server);
   }
   return server;
 }
 
 export function createNormsMcpServer(options = {}) {
   const server = new McpServer(
-    { name: 'norms-structured-applicability', version: '0.2.0' },
+    { name: 'norms-structured-applicability', version: '0.2.1' },
     { instructions: SERVER_INSTRUCTIONS },
   );
 

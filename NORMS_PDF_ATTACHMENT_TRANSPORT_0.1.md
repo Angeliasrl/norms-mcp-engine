@@ -1,55 +1,53 @@
 # NORMS_PDF_ATTACHMENT_TRANSPORT_0.1
 
-Status: **DESIGN_READY**, **LOCAL_RUNTIME_PASS** only after the test commands in this branch pass. Client status remains **CHATGPT_PROBE_PENDING** and **CLAUDE_PROBE_PENDING**.
+Status: **DESIGN_READY**, pending local suite completion. Client status remains **CHATGPT_PROBE_PENDING** and **CLAUDE_PROBE_PENDING**.
 
-## Capability matrix
+## Boundary and capabilities
 
-`Documented` means the cited client documentation states the capability. It does not mean NORMS observed it in that client.
+The MCP endpoint is authless. Caller `owner_id` and `session_id` values are not verified identity and are not authorization. Each upload has four independent, 256-bit random bearer capabilities:
 
-| Client | bytes to tool | file ID | temporary URL | MCP resource | resource_link | extracted text only | no reference | Classification |
-|---|---|---|---|---|---|---|---|---|
-| ChatGPT MCP connector | Not documented as automatic attachment handoff; real probe required | Documented in widget APIs (`uploadFile`, `selectFiles`) | Documented in widget API (`getFileDownloadUrl`) | MCP UI resources are documented, not automatic user-attachment resources | Tool file references are mentioned by the download helper; exact tool envelope needs probe | Possible model context, but not acceptable as original bytes | Possible if host does not bind attachment | CHATGPT_PROBE_PENDING |
-| Claude web custom connector | No documented automatic handoff of chat attachment bytes to a tool | Not documented | Not documented | Remote connectors document text and binary resources supplied by the server | Not established for chat attachments | Claude documents its own PDF processing, not connector forwarding | Possible; real probe required | CLAUDE_PROBE_PENDING |
-| Claude Code MCP | Local files can be read by Claude Code, but automatic bytes-as-tool-argument is not documented | Not documented | Not documented | Documented: list/read resources; referenced resources become attachments | Not established as a local-file handoff | Piped/local content is available to Claude Code, but is not original-byte transport to NORMS | Tool receives none unless an explicit tool/resource path is used | CLAUDE_PROBE_PENDING |
+| Capability | Scope | Consumption |
+|---|---|---|
+| upload | one object PUT only | one-use |
+| finalize | inspected upload only | one-use |
+| audit | finalized object only | one-use |
+| delete | exact upload and capability revocation | repeatable for idempotent cleanup |
 
-Sources checked 2026-08-06: [OpenAI component bridge](https://developers.openai.com/plugins/reference#windowopenai-component-bridge), [OpenAI MCP server guidance](https://developers.openai.com/apps-sdk/build/mcp-server), [Anthropic remote connector support](https://support.anthropic.com/en/articles/11503834-building-custom-integrations-via-remote-mcp-servers), [Claude Code MCP resources](https://docs.anthropic.com/en/docs/claude-code/mcp), and [Claude document uploads](https://support.anthropic.com/en/articles/8241126-what-kinds-of-documents-can-i-upload-to-claude-ai).
+Only scoped HMAC-SHA-256 digests are persisted. Comparisons are constant-time, capabilities expire, can be revoked, never enter logs, and are forbidden in query parameters. The upload capability is placed in a fragment and moved to the `Authorization` header in memory.
 
-The matrix deliberately does **not** infer that a PDF attached to the chat is forwarded to a connector tool. A native path may be promoted only after a client probe records the actual tool arguments/result envelope and verifies the SHA-256 against the local source file.
+## State machine
 
-## Client-independent protocol
+`CREATED -> UPLOADING -> UPLOADED -> FINALIZED -> AUDITING -> CONSUMED -> DELETED`, with `EXPIRED`, `REJECTED`, and `FAILED` alternatives. The Durable Object is the serialization atom for one upload. Exact predecessor checks reject replay, double finalize/audit, concurrent delete/audit and corrupted persisted state.
 
-1. `create_pdf_upload_session` authenticates the owner/session and returns a random upload ID plus short-lived one-use signed `PUT` URL.
-2. The browser/widget streams raw bytes to that URL. The MCP JSON never carries unbounded base64.
-3. The upload service consumes the URL on first attempt, enforces the byte ceiling while streaming, calculates the original-byte SHA-256, checks `%PDF-`, and makes the parser traverse the document.
-4. `finalize_pdf_upload` optionally compares the caller-known SHA-256 and returns only an opaque `norms-upload:<id>` internal reference.
-5. `audit_uploaded_pdf` resolves that reference inside the pipeline. NORMS Core is not called until a page-aware document bundle with original-byte provenance exists.
-6. `delete_pdf_upload` deletes bytes, discards the cached bundle, verifies absence, and is idempotent.
+## Private Cloudflare contract (not provisioned)
 
-The filename is neither accepted nor retained as authority. Ownership and chat session are server-derived, never model assertions. There is no public list, permanent URL or arbitrary URL fetch by the container. Retention cleanup is short and deletion events contain metadata only.
+- `PdfUploadDurableObject` stores state, capability digests, TTL, R2 version/ETag/length and verified byte SHA-256.
+- `createPrivateR2UploadAdapter` streams to a private R2 binding under a random 256-bit object key unrelated to the filename.
+- No bucket URL, public bucket, caller-selected key or arbitrary URL is exposed.
+- The resolver/container may receive bytes only through the Worker/internal binding after R2 metadata and byte provenance verification.
+- Explicit delete plus a short R2 lifecycle rule are required before deployment. The DO alarm is an expiry signal; deployment wiring must delete the exact R2 key and retain lifecycle as a safety net.
+- `TempUploadStorage` is test-only. No R2 bucket, DO namespace, Worker, lifecycle rule or secret is created here.
 
-## Tools and functions
+## Upload UI
 
-- MCP: `createPdfUploadSession`, `finalizePdfUpload`, `auditUploadedPdf`, `deletePdfUpload`, exposed under the requested snake-case names by `registerPdfUploadTools`.
-- Pipeline: `PdfUploadService` and the `UploadStorage` protocol; `TempUploadStorage` is the local/test adapter. A future R2 adapter must preserve opaque IDs and the same create/path-delete/exists semantics. No cloud resource exists in this checkpoint.
-- UI fallback: `ui/pdf-upload.html`, “Carica il PDF in NORMS”, directly `PUT`s the selected file to the one-use URL. It does not use OpenAI APIs or generative keys.
+The static page uses `Referrer-Policy: no-referrer`, a deny-by-default CSP, same-origin connections, no inline/external third-party script, analytics, cookie or local storage. It removes the fragment, validates same origin, streams with XHR progress, supports cancellation and explicit deletion, and reports expiry, size, conflict and active-content rejection without filenames in logs.
 
-## Threats and gates
+## PDF safety boundary
 
-| Threat | Gate |
-|---|---|
-| renamed executable/text | PDF magic plus parser |
-| truncated/polyglot/parser bomb | parser traversal, byte cap, short timeout at deployment layer |
-| replay/race | lock-protected one-use state transition before reading body |
-| cross-user/session access | owner and session comparison on every post-upload operation |
-| traversal/hostile name | random safe upload ID; no client filename in storage |
-| tampering | streaming byte hash plus optional finalize hash comparison |
-| SSRF | container receives only `norms-upload:<id>`, never caller URL |
-| content leakage | content-free events; no bytes/text/token in tool results or logs |
-| retention failure | expiry cleanup plus verified deletion |
-| hash confusion | `byte_sha256` remains distinct from bundle/evidence/semantic hashes |
+The Python inspector rejects JavaScript, `OpenAction`, additional actions, launch actions, embedded files, unsupported encryption, parser repair/inconsistency, excessive pages, objects and page blocks. Byte and decompression/complexity ceilings remain mandatory. This is not a claim of general malware scanning.
 
-## Required client probes
+## Preview-only native client probe
 
-For each client: attach a known PDF; call a diagnostic tool whose schema has explicit optional file/resource fields; capture the exact tool arguments and host metadata without content logging; test file ID download only inside an authorized widget; hash the downloaded bytes; compare with the local hash; delete the probe upload. Record absent fields as absent. Until then no PASS claim is permitted.
+`diagnose_native_file_envelope` is registered only when both `ENVIRONMENT=preview` and `PDF_ATTACHMENT_PROBE_ENABLED=true`. It returns only presence booleans, media type and declared size; it never returns or retains content. Outcomes are:
 
-No merge, push, deploy, Cloudflare resource, secret, or modification to the queued preview workflow is part of this checkpoint.
+- `NATIVE_FILE_HANDOFF_PASS`
+- `NATIVE_FILE_REFERENCE_PASS`
+- `MODEL_TEXT_ONLY`
+- `NO_FILE_TRANSPORT`
+- `CLIENT_CAPABILITY_UNKNOWN`
+
+Extracted model text is never treated as original bytes. Promotion requires an observed client envelope and byte-hash verification. Production must not enable the diagnostic tool.
+
+## Remaining proof
+
+ChatGPT and Claude native attachment behavior is unverified. Cloud lifecycle configuration, internal container byte handoff and resource cleanup require a later isolated preview. No push, deploy or cloud resource creation is part of this checkpoint.

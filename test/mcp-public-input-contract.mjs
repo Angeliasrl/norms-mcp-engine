@@ -50,10 +50,14 @@ await withMcpClient(async ({ client }) => {
     assert.equal(validate(structuredClone(PUBLIC_COMPARATIVE_ANALYSIS_EXAMPLE)), true, JSON.stringify(validate.errors));
   });
 
-  await test('published CURRENT_OPERATIONAL fixture reaches the positive engine path', async () => {
+  await test('published caller-trust fixture is accepted but fails closed at the server boundary', async () => {
     const result = await callAssessment(client, structuredClone(PUBLIC_CURRENT_OPERATIONAL_EXAMPLE));
     assert.notEqual(result.isError, true);
-    assert.equal(result.structuredContent.purpose_assessment.authorizes_current_operational, true);
+    assert.equal(result.structuredContent.purpose_assessment.authorizes_current_operational, false);
+    assert.equal(result.structuredContent.purpose_assessment.admissible, false);
+    assert.equal(result.structuredContent.purpose_assessment.unknown.includes(
+      'trusted_external_evaluations.CALLER_SUPPLIED_UNTRUSTED',
+    ), true);
   });
 
   await test('published COMPARATIVE_ANALYSIS fixture is accepted without as_of', async () => {

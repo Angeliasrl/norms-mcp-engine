@@ -21,7 +21,7 @@ console.log('\nNORMS MCP — Streamable HTTP transport\n');
 await withMcpClient(async ({ client, running }) => {
   await test('initialize returns the stable server identity and instructions', async () => {
     assert.equal(client.getServerVersion().name, 'norms-structured-applicability');
-    assert.equal(client.getServerVersion().version, '0.1.0');
+    assert.equal(client.getServerVersion().version, '0.1.1');
     assert.equal(client.getInstructions(), SERVER_INSTRUCTIONS);
   });
 
@@ -49,10 +49,14 @@ await withMcpClient(async ({ client, running }) => {
   await test('valid tools/call returns schema-shaped structured content and concise text', async () => {
     const result = await callAssessment(client, toolArgumentsFromFixture(fixture));
     assert.notEqual(result.isError, true);
-    assert.equal(result.structuredContent.purpose_assessment.admissible, true);
-    assert.equal(result.structuredContent.purpose_assessment.authorizes_current_operational, true);
+    assert.equal(result.structuredContent.purpose_assessment.admissible, false);
+    assert.equal(result.structuredContent.purpose_assessment.authorizes_current_operational, false);
+    assert.equal(result.structuredContent.purpose_assessment.unknown.includes(
+      'trusted_external_evaluations.CALLER_SUPPLIED_UNTRUSTED',
+    ), true);
     assert.equal(result.content.length, 1);
     assert.match(result.content[0].text, /Blocking: none/);
+    assert.match(result.content[0].text, /CALLER_SUPPLIED_UNTRUSTED/);
   });
 
   await test('invalid tools/call has a stable sanitized error without stack or local path', async () => {

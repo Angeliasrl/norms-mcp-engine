@@ -13,7 +13,7 @@ const protocolError = (status, code, message) => Response.json(
 );
 
 const createWorkerMcpServer = () => registerNormsTool(new McpServer(
-  { name: 'norms-structured-applicability', version: '0.1.0' },
+  { name: 'norms-structured-applicability', version: '0.1.1' },
   { instructions: SERVER_INSTRUCTIONS },
 ));
 

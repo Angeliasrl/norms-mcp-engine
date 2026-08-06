@@ -8,8 +8,22 @@ See `CONDITION_EVIDENCE_BOUNDARY.md` and `UNTRUSTED_CONDITION_ASSERTION_FALSE_PO
 persistence. This branch also contains a minimal local, read-only MCP adapter;
 it is not a public production deployment.**
 
-Version 0.1.0 · claim-by-claim evidence: [`CLAIM_MAP.md`](./CLAIM_MAP.md) ·
+Version 0.1.1 · claim-by-claim evidence: [`CLAIM_MAP.md`](./CLAIM_MAP.md) ·
 not independently verified.
+
+### MCP trusted-external-evaluation boundary
+
+`trusted_external_evaluations` remains accepted by the public MCP input schema
+only for wire compatibility. It is classified
+`CALLER_SUPPLIED_UNTRUSTED`, is never forwarded to the deterministic Core as a
+trust registry, and cannot produce `EXTERNALLY_RATIFIED`. Version 0.1.1 has no
+configured external authority: the server-side resolver returns an empty
+registry and external evaluations fail closed. Stable reason codes are exposed
+through `purpose_assessment.unknown`; the field is not ignored silently.
+
+The fixed zero-input positive demonstration uses an immutable server-owned
+synthetic fixture and is not a caller-configurable external trust policy. See
+[`NORMS_MCP_TRUSTED_EXTERNAL_EVALUATION_BOUNDARY_0.1.1.md`](./NORMS_MCP_TRUSTED_EXTERNAL_EVALUATION_BOUNDARY_0.1.1.md).
 
 The admissibility model and claim-map linter, as pure functions. No I/O, no
 network, no transport.

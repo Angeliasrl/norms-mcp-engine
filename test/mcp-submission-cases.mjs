@@ -121,24 +121,25 @@ const assertNegative = (result) => {
 console.log('\nNORMS MCP — OpenAI submission cases\n');
 
 await withMcpClient(async ({ client }) => {
-  await test('P1 complete synthetic CURRENT_OPERATIONAL record authorizes', async () => {
-    assertPositive(await callAssessment(client, syntheticArguments()));
+  await test('P1 caller-supplied trust cannot authorize a complete synthetic record', async () => {
+    assertNegative(await callAssessment(client, syntheticArguments()));
   });
-  await test('P2 satisfied atomic condition authorizes through the engine', async () => {
+  await test('P2 engine-derived atomic fact cannot bypass untrusted completeness', async () => {
     const args = syntheticArguments();
     const result = await callAssessment(client, args);
-    assertPositive(result);
-    assert.equal(result.structuredContent.purpose_assessment.conditions_satisfied, true);
+    assertNegative(result);
+    assert.equal(result.structuredContent.purpose_assessment.conditions_satisfied, false);
+    assert.equal(result.structuredContent.purpose_assessment.condition_completeness_verified, false);
     assert.equal(result.structuredContent.purpose_assessment.condition_results[0].basis, 'ENGINE_DERIVED');
   });
-  await test('P3 evaluation date inside the interval matches', async () => {
+  await test('P3 matching interval cannot bypass untrusted completeness', async () => {
     const result = await callAssessment(client, syntheticArguments());
-    assertPositive(result);
+    assertNegative(result);
     assert.equal(result.structuredContent.purpose_assessment.applicability_matches, true);
   });
-  await test('P4 minimized real Italian fixture satisfies only its limited predicate', async () => {
+  await test('P4 minimized real fixture remains closed without server trust policy', async () => {
     const result = await callAssessment(client, toolArgumentsFromFixture(realFixture));
-    assertPositive(result);
+    assertNegative(result);
     assert.doesNotMatch(result.content[0].text, /legal(?:ly)? compliant|overall legality/i);
   });
   await test('P5 repeated MCP execution is structurally deterministic', async () => {
@@ -146,7 +147,7 @@ await withMcpClient(async ({ client }) => {
     const first = await callAssessment(client, args);
     const second = await callAssessment(client, args);
     assert.deepEqual(first, second);
-    assertPositive(first);
+    assertNegative(first);
   });
   await test('N1 unknown authority fails closed even with no adverse authority finding', async () => {
     const args = syntheticArguments();
@@ -173,6 +174,6 @@ await withMcpClient(async ({ client }) => {
   });
 });
 
-assert.equal(positive, 5);
-assert.equal(negative, 3);
+assert.equal(positive, 0);
+assert.equal(negative, 8);
 console.log(`MCP submission cases: ${passed} passed, ${positive} positive, ${negative} fail-closed/rejected`);

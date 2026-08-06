@@ -5,7 +5,7 @@ Status: deployed read-only implementation.
 ## Server
 
 - Name: `norms-structured-applicability`
-- Version: `0.1.0`
+- Version: `0.1.1`
 - Transport: Streamable HTTP
 - Local endpoint: `POST /mcp`
 - Tools exposed: two read-only tools
@@ -28,9 +28,12 @@ Description:
 > It does not retrieve laws, parse documents, infer legal conditions from free
 > text, provide legal advice or certify overall compliance.
 
-The handler delegates directly to the canonical `assessRelianceForPurpose`
-function. It contains no applicability, condition, eligibility, blocking,
-unknown, or unexamined logic of its own.
+The handler resolves public trust assertions through the server-side trusted
+external evaluation boundary before calling `assessRelianceForPurpose`. The
+Core remains unchanged. Public `trusted_external_evaluations` are compatibility
+input classified `CALLER_SUPPLIED_UNTRUSTED`; they never populate the Core trust
+registry. The handler adds stable trust-boundary unknown codes when an external
+evaluation remains required.
 
 Annotations:
 
@@ -67,6 +70,11 @@ Successful calls return both:
 - one concise text summary containing admissibility, current-operational
   authorization, blockers, unknowns, unexamined state, and the bounded-purpose
   disclaimer.
+
+`structuredContent.trust_boundary` always reports the boundary version,
+classification, caller-supplied count, accepted count and stable reason codes.
+This makes deprecated caller-supplied trust visible even when no external
+condition is relevant to the particular assessment.
 
 The output schema declares every structured field, including `eligible`,
 `admissible`, `authorizes_current_operational`, `blocking`, `unknown`,

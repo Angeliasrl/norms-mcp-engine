@@ -190,7 +190,10 @@ const trustedEvaluationSchema = z.object({
   evaluator_id: nonEmpty,
   authority_id: nonEmpty,
   outcome: z.enum(['SATISFIED', 'NOT_SATISFIED', 'UNKNOWN']),
-}).strict().meta({ id: 'TrustedExternalEvaluation' });
+}).strict().meta({
+  id: 'TrustedExternalEvaluation',
+  description: 'Deprecated compatibility input. Caller-supplied entries are classified CALLER_SUPPLIED_UNTRUSTED and never enter the server trust registry.',
+});
 
 const purposeOneOf = [
   {
@@ -215,7 +218,8 @@ export const publicInputSchema = z.object({
   context: contextSchema,
   reliance_purpose: z.enum(['CURRENT_OPERATIONAL', 'HISTORICAL_AS_OF', 'COMPARATIVE_ANALYSIS']),
   as_of: civilDate.optional(),
-  trusted_external_evaluations: z.array(trustedEvaluationSchema).max(64).optional(),
+  trusted_external_evaluations: z.array(trustedEvaluationSchema).max(64).optional()
+    .describe('Deprecated compatibility field. It is never treated as server-side trust.'),
 }).strict().superRefine((value, ctx) => {
   const requiresAsOf = value.reliance_purpose === 'CURRENT_OPERATIONAL' || value.reliance_purpose === 'HISTORICAL_AS_OF';
   if (requiresAsOf && value.as_of === undefined) {

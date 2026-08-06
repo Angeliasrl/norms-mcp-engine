@@ -4,6 +4,11 @@ import * as z from 'zod/v4';
 import { ModelError, assessRelianceForPurpose } from '../src/model.js';
 import { publicInputSchema } from './public-input-contract.mjs';
 import { registerPositiveCurrentOperationalDemoTool } from './positive-current-operational-demo-tool.mjs';
+import {
+  applyTrustedExternalEvaluationBoundary,
+  hasExternalEvaluationRequirement,
+  resolveServerTrustedExternalEvaluations,
+} from './trusted-external-evaluation-boundary.mjs';
 
 export const TOOL_NAME = 'assess_normative_reliance';
 
@@ -55,6 +60,16 @@ const instrumentStatusSchema = z.object({
 
 export const outputSchema = {
   current_operational_ground: groundSchema,
+  trust_boundary: z.object({
+    boundary_version: z.literal('NORMS_MCP_TRUSTED_EXTERNAL_EVALUATION_BOUNDARY_0.1.1'),
+    classification: z.enum(['NOT_SUPPLIED', 'CALLER_SUPPLIED_UNTRUSTED']),
+    caller_supplied_count: z.number().int().nonnegative(),
+    accepted_count: z.literal(0),
+    reason_codes: z.array(z.enum([
+      'trusted_external_evaluations.CALLER_SUPPLIED_UNTRUSTED',
+      'trusted_external_evaluations.NO_SERVER_TRUST_POLICY_CONFIGURED',
+    ])),
+  }),
   purpose_assessment: z.object({
     purpose: z.enum(['CURRENT_OPERATIONAL', 'HISTORICAL_AS_OF', 'COMPARATIVE_ANALYSIS']),
     as_of: z.string().optional(),
@@ -116,9 +131,17 @@ export function registerNormsTool(server) {
     },
     async ({ trusted_external_evaluations, ...request }) => {
       try {
-        const structuredContent = assessRelianceForPurpose(
+        const trustResolution = resolveServerTrustedExternalEvaluations(
+          trusted_external_evaluations,
+        );
+        const coreResult = assessRelianceForPurpose(
           request,
-          { trusted_external_evaluations: trusted_external_evaluations ?? [] },
+          { trusted_external_evaluations: trustResolution.trusted_external_evaluations },
+        );
+        const structuredContent = applyTrustedExternalEvaluationBoundary(
+          coreResult,
+          trustResolution,
+          hasExternalEvaluationRequirement(request.entry),
         );
         return {
           structuredContent,
@@ -142,7 +165,7 @@ export function registerNormsTool(server) {
 
 export function createNormsMcpServer() {
   const server = new McpServer(
-    { name: 'norms-structured-applicability', version: '0.1.0' },
+    { name: 'norms-structured-applicability', version: '0.1.1' },
     { instructions: SERVER_INSTRUCTIONS },
   );
 

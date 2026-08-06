@@ -9,6 +9,8 @@ import {
   hasExternalEvaluationRequirement,
   resolveServerTrustedExternalEvaluations,
 } from './trusted-external-evaluation-boundary.mjs';
+import { registerEndToEndTools } from './end-to-end-tools.mjs';
+import { resolverClientFromEnv } from './resolver-client.mjs';
 
 export const TOOL_NAME = 'assess_normative_reliance';
 
@@ -115,7 +117,13 @@ const summaryText = (assessment) => [
   'This is a bounded structured assessment, not legal advice or a general compliance determination.',
 ].join(' ');
 
-export function registerNormsTool(server) {
+export function assessStructuredRequest({ trusted_external_evaluations, ...request }) {
+  const trustResolution = resolveServerTrustedExternalEvaluations(trusted_external_evaluations);
+  const coreResult = assessRelianceForPurpose(request, { trusted_external_evaluations: trustResolution.trusted_external_evaluations });
+  return applyTrustedExternalEvaluationBoundary(coreResult, trustResolution, hasExternalEvaluationRequirement(request.entry));
+}
+
+export function registerNormsTool(server, options = {}) {
   server.registerTool(
     TOOL_NAME,
     {
@@ -131,18 +139,7 @@ export function registerNormsTool(server) {
     },
     async ({ trusted_external_evaluations, ...request }) => {
       try {
-        const trustResolution = resolveServerTrustedExternalEvaluations(
-          trusted_external_evaluations,
-        );
-        const coreResult = assessRelianceForPurpose(
-          request,
-          { trusted_external_evaluations: trustResolution.trusted_external_evaluations },
-        );
-        const structuredContent = applyTrustedExternalEvaluationBoundary(
-          coreResult,
-          trustResolution,
-          hasExternalEvaluationRequirement(request.entry),
-        );
+        const structuredContent = assessStructuredRequest({ trusted_external_evaluations, ...request });
         return {
           structuredContent,
           content: [{ type: 'text', text: summaryText(structuredContent.purpose_assessment) }],
@@ -160,14 +157,19 @@ export function registerNormsTool(server) {
     },
   );
 
-  return registerPositiveCurrentOperationalDemoTool(server);
+  registerPositiveCurrentOperationalDemoTool(server);
+  if (options.resolverClient) registerEndToEndTools(server, options);
+  return server;
 }
 
-export function createNormsMcpServer() {
+export function createNormsMcpServer(options = {}) {
   const server = new McpServer(
-    { name: 'norms-structured-applicability', version: '0.1.1' },
+    { name: 'norms-structured-applicability', version: '0.2.0' },
     { instructions: SERVER_INSTRUCTIONS },
   );
 
-  return registerNormsTool(server);
+  return registerNormsTool(server, {
+    ...options,
+    resolverClient: options.resolverClient ?? resolverClientFromEnv(process.env),
+  });
 }

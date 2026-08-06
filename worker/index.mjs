@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/server';
 import { createMcpHandler } from 'agents/mcp/server';
 
 import { SERVER_INSTRUCTIONS, registerNormsTool } from '../server/norms-tool.mjs';
+import { resolverClientFromEnv } from '../server/resolver-client.mjs';
 import { publicPageResponse } from './public-pages.mjs';
 
 const MAX_REQUEST_BYTES = 64 * 1024;
@@ -12,15 +13,10 @@ const protocolError = (status, code, message) => Response.json(
   { status },
 );
 
-const createWorkerMcpServer = () => registerNormsTool(new McpServer(
-  { name: 'norms-structured-applicability', version: '0.1.1' },
+const createWorkerMcpServer = (env) => registerNormsTool(new McpServer(
+  { name: 'norms-structured-applicability', version: '0.2.0' },
   { instructions: SERVER_INSTRUCTIONS },
-));
-
-const mcpHandler = createMcpHandler(createWorkerMcpServer, {
-  route: '/mcp',
-  corsOptions: false,
-});
+), { resolverClient: resolverClientFromEnv(env) });
 
 async function handleWithTimeout(request, env, ctx) {
   let timeoutId;
@@ -30,6 +26,9 @@ async function handleWithTimeout(request, env, ctx) {
     ), REQUEST_TIMEOUT_MS);
   });
   try {
+    const mcpHandler = createMcpHandler(() => createWorkerMcpServer(env), {
+      route: '/mcp', corsOptions: false,
+    });
     return await Promise.race([mcpHandler(request, env, ctx), timeout]);
   } finally {
     clearTimeout(timeoutId);

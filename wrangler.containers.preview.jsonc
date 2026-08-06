@@ -1,19 +1,21 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "norms-mcp-preview",
+  "name": "norms-mcp-e2e-preview",
   "main": "worker/index.mjs",
   "compatibility_date": "2026-08-06",
   "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": false,
-  "preview_urls": true,
+  "workers_dev": true,
+  "preview_urls": false,
   "containers": [{
+    "name": "norms-resolver-e2e-preview",
     "class_name": "NormsResolverContainer",
     "image": "../../norms-document-pipeline/Dockerfile",
-    "max_instances": 2,
+    "image_build_context": "../../norms-document-pipeline",
+    "max_instances": 1,
     "instance_type": "basic"
   }],
   "durable_objects": {"bindings": [{"name": "NORMS_RESOLVER", "class_name": "NormsResolverContainer"}]},
   "migrations": [{"tag": "resolver-container-v1", "new_sqlite_classes": ["NormsResolverContainer"]}],
-  "vars": {"ENVIRONMENT": "preview"},
+  "vars": {"ENVIRONMENT": "preview", "MCP_REQUEST_TIMEOUT_MS": "60000"},
   "observability": {"enabled": true, "head_sampling_rate": 0.01}
 }

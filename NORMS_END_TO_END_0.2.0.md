@@ -10,6 +10,6 @@ Fail-closed gates before Core: resolver success; `PUBLIC_RESOLVED`; readiness tr
 
 Document SHA-256 binds acquired bytes; package SHA-256 binds canonical serialized package content; resolution fingerprint binds the semantic resolution projection. They are not interchangeable.
 
-The preview configuration selects Cloudflare `basic`, maximum two instances and a private Durable Object/container binding. It is a deployment template, not an active configuration. Preview must be deployed separately, smoke-tested, and promoted gradually. Rollback targets the preceding Worker deployment and its approved image digest. No Cloudflare action is performed by repository CI.
+The preview configuration selects the isolated Worker `norms-mcp-e2e-preview`, Container application `norms-resolver-e2e-preview`, Cloudflare `basic`, one active instance, a dedicated Durable Object namespace, and workers.dev only. It declares no route or custom domain. Container HTTPS egress is intercepted and restricted to the versioned official-provider allowlist. The cross-repository GitHub workflow recreates the approved sibling checkout structure (`norms-document-pipeline` and `_pubblicazione/norms-mcp-engine`), so the versioned Dockerfile path is valid locally and in CI without copying source. Preview must be deployed separately, smoke-tested, and deleted after evidence capture. Production is never a preview rollback target.
 
 PDF support covers only bounded official HTTPS URLs. MCP chat attachments and unbounded base64 are out of scope.

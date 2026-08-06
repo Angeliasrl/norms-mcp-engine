@@ -1,12 +1,46 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import { createMcpHandler } from 'agents/mcp/server';
+import { Container, ContainerProxy } from '@cloudflare/containers';
 
 import { SERVER_INSTRUCTIONS, registerNormsTool } from '../server/norms-tool.mjs';
 import { resolverClientFromEnv } from '../server/resolver-client.mjs';
 import { publicPageResponse } from './public-pages.mjs';
 
 const MAX_REQUEST_BYTES = 64 * 1024;
-const REQUEST_TIMEOUT_MS = 5_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 5_000;
+const MAX_REQUEST_TIMEOUT_MS = 60_000;
+
+export { ContainerProxy };
+
+export class NormsResolverContainer extends Container {
+  defaultPort = 8080;
+  sleepAfter = '2m';
+  enableInternet = false;
+  interceptHttps = true;
+  allowedHosts = [
+    'normattiva.it',
+    '*.normattiva.it',
+    'gazzettaufficiale.it',
+    '*.gazzettaufficiale.it',
+    'eur-lex.europa.eu',
+    'publications.europa.eu',
+    'normelombardia.consiglio.regione.lombardia.it',
+  ];
+  envVars = {
+    PYTHONDONTWRITEBYTECODE: '1',
+    PYTHONUNBUFFERED: '1',
+    NORMS_RESOLVER_TMP: '/tmp/norms',
+    NORMS_RESOLVER_EVIDENCE_DIR: '/var/lib/norms/evidence',
+    SSL_CERT_FILE: '/etc/cloudflare/certs/cloudflare-containers-ca.crt',
+  };
+}
+
+function requestTimeoutMs(env) {
+  const configured = Number(env?.MCP_REQUEST_TIMEOUT_MS ?? DEFAULT_REQUEST_TIMEOUT_MS);
+  return Number.isInteger(configured) && configured >= DEFAULT_REQUEST_TIMEOUT_MS
+    ? Math.min(configured, MAX_REQUEST_TIMEOUT_MS)
+    : DEFAULT_REQUEST_TIMEOUT_MS;
+}
 
 const protocolError = (status, code, message) => Response.json(
   { jsonrpc: '2.0', error: { code, message }, id: null },
@@ -19,11 +53,12 @@ const createWorkerMcpServer = (env) => registerNormsTool(new McpServer(
 ), { resolverClient: resolverClientFromEnv(env) });
 
 async function handleWithTimeout(request, env, ctx) {
+  const timeoutMs = requestTimeoutMs(env);
   let timeoutId;
   const timeout = new Promise((resolve) => {
     timeoutId = setTimeout(() => resolve(
-      protocolError(504, -32002, 'Request exceeded the 5000-millisecond processing limit.'),
-    ), REQUEST_TIMEOUT_MS);
+      protocolError(504, -32002, 'Request exceeded the configured processing limit.'),
+    ), timeoutMs);
   });
   try {
     const mcpHandler = createMcpHandler(() => createWorkerMcpServer(env), {

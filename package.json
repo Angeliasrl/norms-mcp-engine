@@ -45,6 +45,7 @@
   ],
   "author": "Francesco Riva — Angelia srl SB",
   "dependencies": {
+    "@cloudflare/containers": "0.3.7",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "agents": "^0.20.1",

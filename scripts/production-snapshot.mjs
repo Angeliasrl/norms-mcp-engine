@@ -28,10 +28,14 @@ try {
   await client.connect(transport);
   const listed = await client.listTools();
   const demo = await client.callTool({ name: 'run_positive_current_operational_demo', arguments: {} });
+  const toolNames = listed.tools.map(({ name }) => name).sort();
+  assert.equal(client.getServerVersion().version, '0.1.1', 'production version must remain 0.1.1');
+  assert.deepEqual(toolNames, ['assess_normative_reliance', 'run_positive_current_operational_demo']);
+  assert.deepEqual(demo.structuredContent, { authorizes_current_operational: true, admissible: true, blocking: [], unknown: [], unexamined: false });
   const snapshot = {
     base_url: normalized,
     server_version: client.getServerVersion(),
-    tools: listed.tools.map(({ name }) => name).sort(),
+    tools: toolNames,
     demo: demo.structuredContent,
     pages,
   };

@@ -85,8 +85,8 @@ try {
   const liveAudit = await timed(() => client.callTool({ name: 'audit_normative_reliance', arguments: auditArguments(citation, 'preview-audit-dlgs36-art50') }));
 
   const negative = await timed(() => client.callTool({ name: 'audit_normative_reliance', arguments: auditArguments(
-    'Decreto legislativo 31 marzo 2023, n. 35, articolo 50',
-    'preview-negative-dlgs35-art50',
+    'Decreto legislativo 31 marzo 2023, n. 999999, articolo 50',
+    'preview-negative-dlgs999999-art50',
   ) }));
   assert.equal(negative.value.structuredContent.normative_assessment, null, 'Core must not run for negative resolution');
   assert.equal(negative.value.structuredContent.unexamined, true);

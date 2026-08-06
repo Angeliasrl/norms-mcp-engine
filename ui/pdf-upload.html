@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="it"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Carica il PDF in NORMS</title>
+<style>body{font:16px system-ui;max-width:34rem;margin:2rem auto;padding:1rem}button,input{font:inherit;margin:.5rem 0}#status{white-space:pre-wrap}</style>
+<main><h1>Carica il PDF in NORMS</h1><p>Il PDF viene inviato direttamente alla sessione NORMS monouso. Non passa attraverso un modello generativo.</p>
+<input id="pdf" type="file" accept="application/pdf,.pdf"><button id="send" disabled>Carica</button><p id="status" role="status"></p></main>
+<script>
+const input=document.querySelector('#pdf'),button=document.querySelector('#send'),status=document.querySelector('#status');
+input.onchange=()=>button.disabled=!input.files?.length;
+button.onclick=async()=>{const file=input.files[0];const session=window.openai?.toolOutput;
+  if(!session?.upload_url){status.textContent='Sessione di upload non disponibile.';return}
+  button.disabled=true;status.textContent='Caricamento…';
+  try{const response=await fetch(session.upload_url,{method:'PUT',headers:{'content-type':'application/pdf','content-length':String(file.size)},body:file});
+    if(!response.ok)throw new Error(`Upload rifiutato (${response.status})`);
+    const result=await response.json();status.textContent=`PDF ricevuto. SHA-256: ${result.byte_sha256}`;
+  }catch(error){status.textContent=error.message}finally{button.disabled=false}
+};
+</script></html>

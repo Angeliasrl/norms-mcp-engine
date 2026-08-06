@@ -10,6 +10,7 @@ import {
   resolveServerTrustedExternalEvaluations,
 } from './trusted-external-evaluation-boundary.mjs';
 import { registerEndToEndTools } from './end-to-end-tools.mjs';
+import { registerPdfUploadTools } from './pdf-upload-tools.mjs';
 import { resolverClientFromEnv } from './resolver-client.mjs';
 
 export const TOOL_NAME = 'assess_normative_reliance';
@@ -159,6 +160,9 @@ export function registerNormsTool(server, options = {}) {
 
   registerPositiveCurrentOperationalDemoTool(server);
   if (options.resolverClient) registerEndToEndTools(server, options);
+  if (options.uploadClient && options.subjectProvider && options.auditPipeline) {
+    registerPdfUploadTools(server, options);
+  }
   return server;
 }
 

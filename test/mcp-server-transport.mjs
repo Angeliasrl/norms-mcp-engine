@@ -21,7 +21,7 @@ console.log('\nNORMS MCP — Streamable HTTP transport\n');
 await withMcpClient(async ({ client, running }) => {
   await test('initialize returns the stable server identity and instructions', async () => {
     assert.equal(client.getServerVersion().name, 'norms-structured-applicability');
-    assert.equal(client.getServerVersion().version, '0.2.1');
+    assert.equal(client.getServerVersion().version, '0.2.2');
     assert.equal(client.getInstructions(), SERVER_INSTRUCTIONS);
   });
 

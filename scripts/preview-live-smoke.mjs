@@ -8,7 +8,7 @@ import { PUBLIC_CURRENT_OPERATIONAL_EXAMPLE } from '../server/public-input-contr
 import { callToolStructured, createInnocuousPdfFixture, withPdfDelete } from './preview-live-smoke-support.mjs';
 
 const [baseUrl, outputPath] = process.argv.slice(2);
-assert.ok(/^https:\/\/norms-mcp-preview-0-2-1-pipeline-0-5-1\.[a-z0-9-]+\.workers\.dev$/.test(baseUrl ?? ''), 'isolated preview workers.dev URL required');
+assert.ok(/^https:\/\/norms-mcp-preview-0-2-2-pipeline-0-5-3\.[a-z0-9-]+\.workers\.dev$/.test(baseUrl ?? ''), 'isolated 0.2.2 preview workers.dev URL required');
 assert.ok(outputPath, 'output path required');
 
 const expectedTools = [

@@ -63,7 +63,7 @@ const acknowledgeVerifiedDocumentBundle = async ({ document_bundle: documentBund
 });
 
 const createWorkerMcpServer = (env) => registerNormsTool(new McpServer(
-  { name: 'norms-structured-applicability', version: '0.2.1' },
+  { name: 'norms-structured-applicability', version: '0.2.2' },
   { instructions: SERVER_INSTRUCTIONS },
 ), {
   resolverClient: resolverClientFromEnv(env),

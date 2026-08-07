@@ -1,6 +1,6 @@
 {
   "name": "norms-mcp-engine",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "description": "Deterministic normative-reliance engine with a minimal read-only MCP Streamable HTTP adapter.",
   "keywords": [

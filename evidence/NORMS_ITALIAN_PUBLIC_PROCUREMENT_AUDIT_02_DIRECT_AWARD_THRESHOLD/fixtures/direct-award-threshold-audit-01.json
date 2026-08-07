@@ -1,0 +1,88 @@
+{
+  "case_id": "CCIAA_FIRENZE_DETERMINAZIONE_41_2024_CIG_B007FB331D",
+  "evaluation_date": "2024-01-27",
+  "entry": {
+    "key": "IT_DLG_36_2023_ART_50_1_B_THRESHOLD_UNIT",
+    "value": "STRUCTURED_SOURCE_UNIT_FREE_TEXT_IGNORED",
+    "origin": { "type": "SOURCE_DOCUMENT", "date": "2024-01-27" },
+    "verification_state": "RATIFIED",
+    "currency": "CURRENT",
+    "authority_status": "VALID",
+    "expiry_status": "ACTIVE",
+    "ratification": {
+      "date": "2026-08-04",
+      "document": "raw/Normattiva_DLG_36_2023_art_50_vig_2024-01-27.html",
+      "sha256": "f1c54224f959c1452b644684903556aa153f0d98459dea3b77fed85f8b475fec",
+      "section_id": "art-50-comma-1-lettera-b"
+    },
+    "scope": {
+      "subject": ["PUBLIC_CONTRACT_SUPPLY"],
+      "jurisdiction": ["ITALY"],
+      "applicable_operations": ["ART_50_1_B_OBJECTIVE_PREDICATE"]
+    },
+    "effective_interval": { "from": "2023-07-01" },
+    "normative_unit": {
+      "instrument": "IT_DLG_36_2023",
+      "provision": "IT_DLG_36_2023_ART_50_COMMA_1_LETTERA_B",
+      "classification_basis": "OFFICIAL_NORMATTIVA_HISTORICAL_VIEW_2024_01_27"
+    },
+    "provision_segmentation": { "status": "SEGMENTED" },
+    "applicability": { "from": "2023-07-01" },
+    "applicability_conditions": {
+      "completeness": "COMPLETE",
+      "completeness_evaluation": {
+        "mode": "EXTERNAL_EVALUATION_REQUIRED",
+        "evaluation": {
+          "outcome": "SATISFIED",
+          "verification_state": "RATIFIED",
+          "evidence": [{
+            "type": "DOCUMENT_REFERENCE",
+            "reference": "analysis/NORMATIVE_UNIT_ART_50_1_B_01.md#selected-structured-content"
+          }],
+          "ratification": {
+            "date": "2026-08-04",
+            "document": "raw/Normattiva_DLG_36_2023_art_50_vig_2024-01-27.html",
+            "sha256": "f1c54224f959c1452b644684903556aa153f0d98459dea3b77fed85f8b475fec",
+            "section_id": "art-50-comma-1-lettera-b",
+            "rule_id": "AUDIT_02_ART_50_1_B_COMPLETENESS_01",
+            "evaluator_id": "NORMS_AUDIT_FIXTURE_RATIFIER_01",
+            "authority_id": "NORMATTIVA_OFFICIAL_SOURCE"
+          }
+        }
+      },
+      "conditions": [{
+        "id": "art-50-1-b-supply-and-threshold",
+        "evaluation_mode": "ENGINE_EVALUATED",
+        "predicate": {
+          "operator": "ALL",
+          "operands": [
+            { "operator": "EQ", "left_fact": "contract_type", "right_value": "SUPPLY" },
+            { "operator": "NUM_LT", "left_fact": "amount_excluding_vat_eur", "right_value": 140000 }
+          ]
+        },
+        "facts": {
+          "contract_type": "SUPPLY",
+          "amount_excluding_vat_eur": 12816
+        },
+        "evidence": [{
+          "type": "DOCUMENT_REFERENCE",
+          "reference": "extracted/CCIAA_Firenze_Determinazione_41_2024.txt#pages-1-3"
+        }]
+      }]
+    }
+  },
+  "context": {
+    "subject": ["PUBLIC_CONTRACT_SUPPLY"],
+    "jurisdiction": ["ITALY"],
+    "applicable_operations": ["ART_50_1_B_OBJECTIVE_PREDICATE"]
+  },
+  "trust": {
+    "trusted_external_evaluations": [{
+      "evidence_package_sha256": "f1c54224f959c1452b644684903556aa153f0d98459dea3b77fed85f8b475fec",
+      "rule_id": "AUDIT_02_ART_50_1_B_COMPLETENESS_01",
+      "evaluator_id": "NORMS_AUDIT_FIXTURE_RATIFIER_01",
+      "authority_id": "NORMATTIVA_OFFICIAL_SOURCE",
+      "outcome": "SATISFIED"
+    }]
+  }
+}

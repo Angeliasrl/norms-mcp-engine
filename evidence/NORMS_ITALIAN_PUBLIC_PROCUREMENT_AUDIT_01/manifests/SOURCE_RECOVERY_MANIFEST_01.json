@@ -1,0 +1,115 @@
+{
+  "phase": "NORMS_ITALIAN_PUBLIC_PROCUREMENT_AUDIT_01_OFFICIAL_SOURCE_RECOVERY",
+  "acquisition_cycle_completed_at_utc": "2026-08-04T08:31:44.0787511Z",
+  "verdict": "SOURCE_INCOMPLETE",
+  "engine_outcome": "NOT_RUN",
+  "comparison_status": "PENDING",
+  "structured_fixture_status": "NOT_READY",
+  "formal_access_required": true,
+  "new_frozen_sources": [
+    {
+      "file": "raw/asl_napoli_3_sud_pubblicazione_16_2024.pdf",
+      "url": "https://www.aslnapoli3sud.it/documents/20121/0/pubblicazione%2Bn.%2B16%2Bdel%2B07.02.2024.pdf/9c50d78b-bc56-0f00-c611-59084b2f2433?t=1712220266751",
+      "entity": "ASL Napoli 3 Sud",
+      "title": "Pubblicazione n. 16 del 7 febbraio 2024",
+      "act_identifier": "Publication list containing Proposal 1612/2024 and Deliberation 188/2024",
+      "act_date": "2024-02-07",
+      "acquired_at_utc": "2026-08-04T08:31:23.4020991Z",
+      "mime": "application/pdf",
+      "bytes": 249952,
+      "sha256": "de10a9588edcb6180066f78be3e12382d711236ef3927d88db3b9d72abe10a37",
+      "http_status": 200,
+      "relationship_to_original_procedure": "Official publication index for the act approving the executive project and initiating the negotiated procedure identified by CUP D24E20003390003",
+      "probative_value": "Verifies act/proposal identifiers, adoption status, date, CUP, object, project approval and decision to initiate; does not prove the full operative text or attachment contents",
+      "missing_attachments": [
+        "Full Deliberation 188/2024",
+        "Proposal 1612/2024",
+        "Executive project",
+        "Economic framework",
+        "Tender specification",
+        "Invitation letter",
+        "SOA category and amount schedule"
+      ],
+      "authentication_required": false,
+      "extraction": {
+        "file": "extracted/asl_napoli_3_sud_pubblicazione_16_2024_relevant_extract.txt",
+        "tool": "pypdf",
+        "tool_version": "6.10.2",
+        "mode": "non-interactive relevant-segment extraction",
+        "pages": 3,
+        "encrypted": false,
+        "active_content_executed": false
+      }
+    }
+  ],
+  "official_access_attempts": [
+    {
+      "channel": "ASL Napoli 3 Sud current Albo Pretorio",
+      "url": "https://www.aslnapoli3sud.it/albo-pretorio",
+      "http_status": 200,
+      "queries": ["D24E20003390003", "Deliberation 188", "B09D3C3424"],
+      "result": "0 records for the original pre-8-July-2024 acts",
+      "authentication_required": false,
+      "note": "The official page directs acts prior to 8 July 2024 to the historical notice board."
+    },
+    {
+      "channel": "ASL Napoli 3 Sud historical Albo Pretorio",
+      "url": "https://albopretorio.aslnapoli3sud.it/AlboOnline/ricercaAlbo",
+      "http_status": null,
+      "result": "Hostname did not resolve in the acquisition environment",
+      "authentication_required": null,
+      "error": "DNS resolution failure; indexed official download URLs could not be enumerated from the unavailable archive"
+    },
+    {
+      "channel": "ASL Napoli 3 Sud institutional site search",
+      "url": "https://www.aslnapoli3sud.it/risultati-ricerca",
+      "http_status": 200,
+      "queries": ["B09D3C3424", "4104926", "D24E20003390003", "Impresa Edile Falcone Pasquale", "SPDC Boscotrecase"],
+      "result": "No additional procedure-specific full act or attachment found",
+      "authentication_required": false
+    },
+    {
+      "channel": "ASL Napoli 3 Sud current Albo, later linking procedure",
+      "url": "https://www.aslnapoli3sud.it/albo-pretorio",
+      "http_status": 200,
+      "query": "B2DA13658A",
+      "result": "Deliberation 1460/2024 found for later RDO 4601193; row expansion states that attachments are unavailable because the publication period ended",
+      "relationship_to_original_procedure": "Linking source only; values were not transferred to the original RDO",
+      "authentication_required": false
+    },
+    {
+      "channel": "ANAC BDNCP legal-publicity routing page",
+      "url": "https://pubblicitalegale.anticorruzione.it/bdncp",
+      "http_status": 200,
+      "query": "B09D3C3424",
+      "result": "Official page routes CIG searches to the ANAC open-data detail dashboard",
+      "authentication_required": false
+    },
+    {
+      "channel": "ANAC open-data BDNCP CIG dashboard",
+      "url": "https://dati.anticorruzione.it/superset/dashboard/dettaglio_cig/?cig=B09D3C3424",
+      "http_status": 200,
+      "mime": "text/plain",
+      "bytes": 269,
+      "result": "Request rejected by the official portal edge; no CIG record recovered",
+      "authentication_required": false,
+      "error": "Request Rejected; support ID 0c942734-18de-42df-85dd-55d5e05e095a"
+    },
+    {
+      "channel": "Acquisti in Rete PA / MEPA",
+      "url": "https://www.acquistinretepa.it/opencms/opencms/",
+      "http_status": 200,
+      "queries": ["4104926", "B09D3C3424", "D24E20003390003"],
+      "result": "No unauthenticated procedure-specific page or downloadable RDO document found",
+      "authentication_required": "Authenticated contracting-authority/operator workspace is required to verify the RDO record and platform filter configuration; public availability was not established"
+    }
+  ],
+  "preserved_source_hashes": {
+    "raw/anac_parere_225_2024_page.html": "c020660ace29d36712ae015112f51f74d09081f7e3b13c3983aed4ceb772cd88",
+    "raw/anac_parere_225_2024.pdf": "e270d6b9983cf11576d40ca4bc4096519b2ad7503529cc8c938c33e7074a5d44",
+    "raw/asl_napoli_3_sud_pubblicazione_77_2024.pdf": "c249e235172b3a3613f4a0dfc7f3fee3b25f82b7f144fd1e30745483cdd37920",
+    "raw/normattiva_d36_2023_allegato_II_12_art18_vig_2024-03-04.html": "d73e45a7c2f602a47431f3a5739bfc8660d4fba250daf4bf48c49ea60f1dd8db",
+    "raw/normattiva_d36_2023_art10_vig_2024-03-04.html": "861553fbe139a0acded1bf2714986a024ed93259474389f889ed9bf1546c1958",
+    "raw/normattiva_d36_2023_art100_vig_2024-03-04.html": "20170ea91d03365f2c059f52375b22128dc6e2a6a5c2a300d2b960f42ca0b34f"
+  }
+}

@@ -1,0 +1,17 @@
+SOURCE: Normattiva
+INSTRUMENT: Decreto legislativo 31 marzo 2023, n. 36
+HISTORICAL VIEW: vigente al 27/01/2024
+SEGMENT: articolo 50, comma 1, lettera b)
+SOURCE URL: https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2023-03-31;36~art50!vig=2024-01-27
+RAW SHA-256: f1c54224f959c1452b644684903556aa153f0d98459dea3b77fed85f8b475fec
+
+b) affidamento diretto dei servizi e forniture, ivi compresi i servizi di
+ingegneria e architettura e l'attivita di progettazione, di importo inferiore
+a 140.000 euro, anche senza consultazione di piu operatori economici,
+assicurando che siano scelti soggetti in possesso di documentate esperienze
+pregresse idonee all'esecuzione delle prestazioni contrattuali, anche
+individuati tra gli iscritti in elenchi o albi istituiti dalla stazione
+appaltante.
+
+Extraction note: literal segment normalized to plain ASCII punctuation and
+line wrapping. No other provision is selected as a normative predicate.

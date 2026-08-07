@@ -1,0 +1,21 @@
+{
+  "acquired_at_utc": "2026-08-04T08:03:38.381Z",
+  "page": {
+    "url": "https://www.anticorruzione.it/-/parere-di-precontenzioso-n.-225-del-8-maggio-2024",
+    "status": 200,
+    "content_type": [
+      "text/html; charset=UTF-8"
+    ],
+    "content_length": null
+  },
+  "pdf": {
+    "url": "https://www.anticorruzione.it/documents/91439/0/Parere%2Bdi%2BPrecontenzioso%2Bn.%2B225%2Bdel%2B8%2Bmaggio%2B2024.pdf/4e25fdb4-18e7-0601-2dc2-1504b1534aea?t=1716294624257",
+    "status": 200,
+    "content_type": [
+      "application/pdf"
+    ],
+    "content_length": [
+      "103851"
+    ]
+  }
+}

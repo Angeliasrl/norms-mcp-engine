@@ -1,22 +1,40 @@
 # norms-mcp-engine
 
-**Experimental prerelease. Engine only. Not an MCP server. No I/O, network,
-persistence or transport.**
+Purpose-aware current reliance uses an evidence-bound condition boundary. Callers cannot authorize operation by supplying `applicability_conditions.status: SATISFIED`; that legacy shape is rejected by `assessRelianceForPurpose`. Conditions are either derived by the closed predicate DSL or accepted through a fully ratified external evaluation. Condition completeness is independently verified and current authorization fails closed for missing, unsupported, unknown, or unconfirmed bases.
 
-Version 0.1.0 · claim-by-claim evidence: [`CLAIM_MAP.md`](./CLAIM_MAP.md) ·
+See `CONDITION_EVIDENCE_BOUNDARY.md` and `UNTRUSTED_CONDITION_ASSERTION_FALSE_POSITIVE_01.md`.
+
+**Experimental prerelease. The model remains pure and has no I/O, network or
+persistence. This branch also contains a minimal local, read-only MCP adapter;
+it is not a public production deployment.**
+
+Version 0.1.1 · claim-by-claim evidence: [`CLAIM_MAP.md`](./CLAIM_MAP.md) ·
 not independently verified.
+
+### MCP trusted-external-evaluation boundary
+
+`trusted_external_evaluations` remains accepted by the public MCP input schema
+only for wire compatibility. It is classified
+`CALLER_SUPPLIED_UNTRUSTED`, is never forwarded to the deterministic Core as a
+trust registry, and cannot produce `EXTERNALLY_RATIFIED`. Version 0.1.1 has no
+configured external authority: the server-side resolver returns an empty
+registry and external evaluations fail closed. Stable reason codes are exposed
+through `purpose_assessment.unknown`; the field is not ignored silently.
+
+The fixed zero-input positive demonstration uses an immutable server-owned
+synthetic fixture and is not a caller-configurable external trust policy. See
+[`NORMS_MCP_TRUSTED_EXTERNAL_EVALUATION_BOUNDARY_0.1.1.md`](./NORMS_MCP_TRUSTED_EXTERNAL_EVALUATION_BOUNDARY_0.1.1.md).
 
 The admissibility model and claim-map linter, as pure functions. No I/O, no
 network, no transport.
 
-> **This is not an MCP server.** It is the engine an MCP server would consume.
-> There is no entrypoint, no tool handler and no deployment here. `norms-mcp`,
-> the server, does not yet exist as a published artifact. The naming distinction
-> is deliberate: claiming a transport that is absent would be exactly the kind of
-> overclaim this library exists to make visible.
+> **No public MCP service is deployed.** `server/index.mjs` is a local
+> Streamable HTTP adapter exposing one read-only tool. It performs no retrieval,
+> persistence, external calls, document parsing or legal interpretation.
 
 ```bash
-npm test    # 73 tests + claim-map sync check; no network, no account required
+npm test    # model tests + claim-map sync check; no network, no account required
+npm run start:mcp  # local server on 127.0.0.1:3000; POST /mcp, GET /healthz
 ```
 
 ---
@@ -109,6 +127,38 @@ engine reports the match; it never decides.
 `jurisdiction` and `applicable_operations`. No hierarchies, wildcards or
 negation. An empty or malformed scope **throws** — it never becomes a match,
 because "unspecified" must not silently mean "applies to everything".
+
+### Purpose-aware temporal and provision reliance
+
+The legacy gate above remains **current operational ground eligibility**. It
+cannot determine whether a selected provision has started or ceased to apply,
+whether additional applicability conditions are satisfied, or whether a whole
+instrument needs provision-level segmentation.
+
+The additive `assessRelianceForPurpose` API distinguishes current operational,
+historical as-of, and comparative use. It keeps artifact `effective_interval`
+separate from provision `applicability`, requires explicit civil dates where a
+date is relevant, and fails current operational assessment closed when the
+normative unit, segmentation, applicability, conditions, authority, or scope is
+unknown.
+
+```js
+import {
+  RELIANCE_PURPOSE,
+  assessRelianceForPurpose,
+} from 'norms-mcp-engine/model';
+
+assessRelianceForPurpose({
+  entry,
+  context,
+  reliance_purpose: RELIANCE_PURPOSE.CURRENT_OPERATIONAL,
+  as_of: '2026-08-03',
+});
+```
+
+See [`TEMPORAL_PURPOSE_MODEL.md`](./TEMPORAL_PURPOSE_MODEL.md) for the public
+API contract and [`PROVISION_LEVEL_APPLICABILITY_FALSE_POSITIVE_01.md`](./PROVISION_LEVEL_APPLICABILITY_FALSE_POSITIVE_01.md)
+for the fail-closed publication gate.
 
 ### Ratification carries its proof
 
@@ -231,7 +281,8 @@ precondition named).
 
 ## What is not here
 
-- **No MCP server.** No transport, no tool handlers, no entrypoint.
+- **No public MCP deployment.** The local adapter has no authentication,
+  persistence, external network calls or production operational controls.
 - **No persistence.** Pure functions; the caller owns storage.
 - **No `applyRevalidation` / `applyExpiry` helpers.** `revalidate` and
   `evaluateExpiry` return verdicts; the caller applies them.

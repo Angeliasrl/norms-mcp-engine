@@ -50,11 +50,11 @@ This map covers the engine: src/model.js, src/canonical.js, src/claimmap.js and 
 
 | # | Claim | State | Lvl | Support / evidence |
 |---|---|---|---|---|
-| S1 | An MCP server consuming this engine exists | **A** | — | **Precondition:** An entrypoint with read-only tool handlers. Not in this package. Not claimed. |
+| S1 | A public production MCP server consuming this engine exists | **A** | — | **Precondition:** A stable public HTTPS deployment, production controls, and a resolvable MCP endpoint. Not claimed. The package contains only a locally tested read-only adapter. |
 | S2 | The transport is vendor-neutral | **D** | 2 | `derived_from: []` · `support_status: SPEC` A property of MCP, not of this engine. Nothing observed. |
 | S3 | The layer constrains an executing agent | **A** | — | **Precondition:** A published, resolvable record of at least one such episode, plus a comparison run with the layer absent. Not claimed. One anecdote exists in a private repository; it is not published and is not evidence here. |
 | S4 | The layer holds beyond the owner's availability | **A** | — | **Precondition:** A declared interval, marked before it begins, in which the owner is unreachable by construction and an executor is governed only by the layer. Custodianship. Untouched. |
-| S5 | A client fetched the corpus — verifiable server-side | **A** | 2 | **Precondition:** Per-consumer tokens and a read record, in a server that does not exist here. Outside this package. |
+| S5 | A client fetched the corpus — verifiable server-side | **A** | 2 | **Precondition:** Per-consumer tokens and a read record in a deployed server; no deployment exists here. Outside this package. |
 | S6 | An agent's output was shaped by the norms | **A** | — | **Precondition:** None available. Heeding is a property of reasoning, not of transport; no external mechanism can establish it. A permanent limit of the design, recorded as such and not as a task. |
 
 ---

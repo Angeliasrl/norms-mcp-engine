@@ -1,8 +1,8 @@
 {
   "name": "norms-mcp-engine",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
-  "description": "Admissibility model and claim-map linter for normative corpora. Pure functions, no I/O, no transport. This is the engine only \u2014 not an MCP server.",
+  "description": "Deterministic normative-reliance engine with a minimal read-only MCP Streamable HTTP adapter.",
   "keywords": [
     "admissibility",
     "provenance",
@@ -16,7 +16,14 @@
     "./claimmap": "./src/claimmap.js"
   },
   "scripts": {
-    "test": "node test/suite.mjs && node scripts/build-claimmap.mjs --check",
+    "start:mcp": "node server/index.mjs",
+    "dev:worker": "wrangler dev --local",
+    "test": "node test/suite.mjs && node test/condition-evidence.mjs && node test/procurement-deterministic-applicability-negative-matrix.mjs && node test/procurement-deterministic-applicability-positive-synthetic.mjs && node test/italian-public-procurement-audit-02-direct-award-threshold.mjs && node test/trusted-external-evaluation-boundary.mjs && node test/mcp-server-transport.mjs && node test/positive-current-operational-demo.mjs && node test/mcp-public-input-contract.mjs && node test/mcp-submission-cases.mjs && node scripts/build-claimmap.mjs --check",
+    "test:audit-02": "node test/italian-public-procurement-audit-02-direct-award-threshold.mjs",
+    "test:mcp": "node test/mcp-server-transport.mjs && node test/mcp-submission-cases.mjs",
+    "test:input-contract": "node test/mcp-public-input-contract.mjs",
+    "test:worker": "node test/cloudflare-worker-local.mjs",
+    "test:public-pages": "npm run test:worker",
     "build:claimmap": "node scripts/build-claimmap.mjs"
   },
   "engines": {
@@ -25,12 +32,30 @@
   "license": "Apache-2.0",
   "files": [
     "src/",
+    "server/",
     "test/",
     "scripts/",
     "claims.mjs",
     "README.md",
     "CLAIM_MAP.md",
+    "MCP_PUBLIC_TOOL_CONTRACT_01.md",
+    "MCP_SERVER_OPERATIONS_01.md",
+    "NORMS_MCP_TRUSTED_EXTERNAL_EVALUATION_BOUNDARY_0.1.1.md",
     "LICENSE"
   ],
-  "author": "Francesco Riva \u2014 Angelia srl SB"
+  "author": "Francesco Riva — Angelia srl SB",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "agents": "^0.20.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260804.1",
+    "ajv": "^8.20.0",
+    "wrangler": "^4.118.0"
+  },
+  "overrides": {
+    "undici": "7.29.0"
+  }
 }

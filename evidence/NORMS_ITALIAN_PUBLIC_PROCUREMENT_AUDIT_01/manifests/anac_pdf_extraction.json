@@ -1,0 +1,20 @@
+{
+  "tool": "pypdf",
+  "tool_version": "6.10.2",
+  "mode": "non-interactive text extraction; no embedded content executed",
+  "pages": 5,
+  "encrypted": false,
+  "has_open_action": false,
+  "has_additional_actions": false,
+  "has_names_dictionary": false,
+  "has_embedded_files_name_tree": false,
+  "has_javascript_name_tree": false,
+  "document_metadata": {
+    "/Producer": "GPL Ghostscript 10.02.1",
+    "/CreationDate": "D:20240521142801+02'00'",
+    "/ModDate": "D:20240521142801+02'00'",
+    "/Title": "Microsoft Word - Delibera n. 225 del 8 maggio 2024",
+    "/Creator": "PDF24 Creator",
+    "/Author": "l.bravetti"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "tool": "pypdf",
+  "tool_version": "6.10.2",
+  "mode": "non-interactive text extraction; no embedded content executed",
+  "pages": 4,
+  "encrypted": false,
+  "has_open_action": false,
+  "has_additional_actions": false,
+  "has_embedded_files_name_tree": false,
+  "has_javascript_name_tree": false
+}

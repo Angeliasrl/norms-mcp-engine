@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { DurableObject } from 'cloudflare:workers';
 
 export const PDF_UPLOAD_STATES = Object.freeze([
   'CREATED', 'UPLOADING', 'UPLOADED', 'FINALIZED', 'AUDITING', 'CONSUMED', 'DELETED',
@@ -42,8 +43,8 @@ function authorize(record, secret, scope, value, now, consume) {
 }
 
 /** Durable Object contract. One instance is the coordination atom for one upload. */
-export class PdfUploadDurableObject {
-  constructor(state, env) { this.state = state; this.env = env; }
+export class PdfUploadDurableObject extends DurableObject {
+  constructor(ctx, env) { super(ctx, env); this.state = ctx; this.env = env; }
 
   async createSession({ uploadId, maxBytes, ttlSeconds, now = Date.now() }) {
     if (await this.state.storage.get('record')) throw new PdfUploadBoundaryError('UPLOAD_ALREADY_EXISTS', 'Upload state already exists.');

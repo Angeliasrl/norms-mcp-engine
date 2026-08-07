@@ -14,6 +14,7 @@ assert.ok(outputPath, 'output path required');
 const expectedTools = [
   'assess_normative_reliance',
   'audit_normative_reliance',
+  'audit_pdf_attachment',
   'audit_uploaded_pdf',
   'create_pdf_upload_session',
   'delete_pdf_upload',

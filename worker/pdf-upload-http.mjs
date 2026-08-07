@@ -10,6 +10,84 @@ const PDF_DOCUMENT_BUNDLE_VERSION = '0.2.0';
 const DEFAULT_AUDIT_TIMEOUT_MS = 60_000;
 const PATH = /^\/pdf-uploads\/([A-Za-z0-9_-]{20,128})(?:\/(finalize|audit))?$/;
 
+function validateChatGptDownloadUrl(value) {
+  let url;
+  try { url = new URL(value); } catch {
+    throw new PdfUploadBoundaryError('PDF_ATTACHMENT_DOWNLOAD_URL_INVALID', 'Attachment download URL is invalid.');
+  }
+  const hostname = url.hostname.toLowerCase();
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(hostname);
+  const privateIpv4 = ipv4 && (() => {
+    const octets = ipv4.slice(1).map(Number);
+    return octets.some((octet) => octet > 255)
+      || octets[0] === 10 || octets[0] === 127 || octets[0] === 0
+      || (octets[0] === 169 && octets[1] === 254)
+      || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+      || (octets[0] === 192 && octets[1] === 168);
+  })();
+  if (url.protocol !== 'https:' || url.username || url.password
+      || (url.port && url.port !== '443') || !hostname.includes('.')
+      || hostname === 'localhost' || hostname.endsWith('.localhost')
+      || hostname.endsWith('.local') || hostname.endsWith('.internal')
+      || hostname.includes(':') || privateIpv4) {
+    throw new PdfUploadBoundaryError('PDF_ATTACHMENT_DOWNLOAD_URL_INVALID', 'Attachment download URL is not an allowed public HTTPS URL.');
+  }
+  return url;
+}
+
+async function boundedPdfBytes(response) {
+  const declaredHeader = response.headers.get('content-length');
+  const declared = declaredHeader === null ? 0 : Number(declaredHeader);
+  if (declaredHeader !== null && (!Number.isSafeInteger(declared) || declared < 1 || declared > MAX_PDF_BYTES)) {
+    throw new PdfUploadBoundaryError('PDF_TOO_LARGE', 'Attachment length is absent or outside the configured limit.');
+  }
+  if (!response.body) throw new PdfUploadBoundaryError('PDF_ATTACHMENT_DOWNLOAD_FAILED', 'Attachment response is missing.');
+  const reader = response.body.getReader(); const chunks = []; let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_PDF_BYTES) {
+      await reader.cancel();
+      throw new PdfUploadBoundaryError('PDF_TOO_LARGE', 'Attachment exceeds the configured limit.');
+    }
+    chunks.push(value);
+  }
+  if (total < 5) throw new PdfUploadBoundaryError('PDF_MAGIC_INVALID', 'Attachment is not a PDF.');
+  const bytes = new Uint8Array(total); let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  if (new TextDecoder().decode(bytes.subarray(0, 5)) !== '%PDF-') {
+    throw new PdfUploadBoundaryError('PDF_MAGIC_INVALID', 'Attachment is not a PDF.');
+  }
+  return bytes;
+}
+
+export function createChatGptFileDownloader({ fetchImpl = fetch } = {}) {
+  return async (file) => {
+    if (!file || typeof file.file_id !== 'string' || file.file_id.length < 1 || file.file_id.length > 256
+        || /[\u0000-\u001f\u007f]/.test(file.file_id)
+        || (file.mime_type !== undefined && file.mime_type !== 'application/pdf')) {
+      throw new PdfUploadBoundaryError('PDF_ATTACHMENT_DESCRIPTOR_INVALID', 'Attachment descriptor is invalid.');
+    }
+    const url = validateChatGptDownloadUrl(file.download_url);
+    let response;
+    try {
+      response = await fetchImpl(url, { method: 'GET', redirect: 'error', headers: { accept: 'application/pdf' } });
+    } catch {
+      throw new PdfUploadBoundaryError('PDF_ATTACHMENT_DOWNLOAD_FAILED', 'Attachment download failed.');
+    }
+    if (!(response instanceof Response) || !response.ok) {
+      throw new PdfUploadBoundaryError('PDF_ATTACHMENT_DOWNLOAD_FAILED', 'Attachment download was rejected.');
+    }
+    const mediaType = (response.headers.get('content-type') ?? '').split(';', 1)[0].trim().toLowerCase();
+    if (mediaType && mediaType !== 'application/pdf' && mediaType !== 'application/octet-stream') {
+      throw new PdfUploadBoundaryError('PDF_ATTACHMENT_MEDIA_TYPE_INVALID', 'Attachment response is not a PDF media type.');
+    }
+    const bytes = await boundedPdfBytes(response);
+    return { bytes, byte_sha256: createHash('sha256').update(bytes).digest('hex'), byte_length: bytes.byteLength };
+  };
+}
+
 function requireRuntime(env) {
   if (!env?.PDF_UPLOADS || !env?.PDF_UPLOAD_COORDINATOR) {
     throw new PdfUploadBoundaryError('UPLOAD_BINDING_MISSING', 'Private upload bindings are required.');
@@ -234,6 +312,15 @@ export function pdfUploadClientFromEnv(env) {
   const adapter = requireRuntime(env);
   return {
     create: (args) => adapter.create(args),
+    async upload({ uploadId, capability: supplied, bytes }) {
+      if (!(bytes instanceof Uint8Array) || bytes.byteLength < 1 || bytes.byteLength > MAX_PDF_BYTES) {
+        throw new PdfUploadBoundaryError('PDF_TOO_LARGE', 'Attachment bytes are outside the configured limit.');
+      }
+      const uploaded = await adapter.put({ uploadId, capability: supplied, body: bytes, declaredLength: bytes.byteLength });
+      const byteSha256 = createHash('sha256').update(bytes).digest('hex');
+      await adapter.recordInspection({ uploadId, byteSha256, r2Version: uploaded.r2_version, r2Etag: uploaded.r2_etag });
+      return { upload_id: uploadId, state: 'UPLOADED', byte_sha256: byteSha256, byte_length: bytes.byteLength };
+    },
     finalize: (args) => adapter.finalize(args),
     audit: (args) => auditWithPipeline(adapter, env, args),
     delete: (args) => adapter.delete(args),

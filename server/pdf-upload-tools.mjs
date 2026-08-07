@@ -3,6 +3,9 @@ import * as z from 'zod/v4';
 const uploadId = z.string().regex(/^[A-Za-z0-9_-]{20,128}$/);
 const capability = z.string().min(43).max(256).regex(/^[A-Za-z0-9_-]+$/);
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/);
+const openAiFile = z.object({
+  download_url: z.url(), file_id: z.string(), mime_type: z.string().optional(), file_name: z.string().optional(),
+}).strict();
 const toolResult = (structuredContent) => ({ structuredContent, content: [{ type: 'text', text: JSON.stringify(structuredContent) }] });
 
 function safeAuditToolError(error) {
@@ -29,6 +32,19 @@ function safeAuditToolError(error) {
   return { isError: true, content: [{ type: 'text', text: `PDF_NORMATIVE_PIPELINE_HTTP_ERROR ${fields.join(' ')}` }] };
 }
 
+function safeAttachmentToolError(error) {
+  const upstream = safeAuditToolError(error);
+  if (upstream !== null) return upstream;
+  const allowed = new Set([
+    'PDF_ATTACHMENT_DESCRIPTOR_INVALID', 'PDF_ATTACHMENT_DOWNLOAD_URL_INVALID',
+    'PDF_ATTACHMENT_DOWNLOAD_FAILED', 'PDF_ATTACHMENT_MEDIA_TYPE_INVALID',
+    'PDF_TOO_LARGE', 'PDF_MAGIC_INVALID', 'PDF_ATTACHMENT_BYTE_PROVENANCE_MISMATCH',
+    'PDF_UPLOAD_CAPABILITY_ENVELOPE_INVALID', 'PDF_DELETE_NOT_VERIFIED',
+  ]);
+  const code = allowed.has(error?.code) ? error.code : allowed.has(error?.message) ? error.message : 'PDF_ATTACHMENT_AUDIT_FAILED';
+  return { isError: true, content: [{ type: 'text', text: code }] };
+}
+
 export async function createPdfUploadSession(args, client) {
   return client.create({ requestedMaxBytes: args.max_bytes });
 }
@@ -50,6 +66,57 @@ export async function auditUploadedPdf(args, client, auditPipeline) {
 }
 export async function deletePdfUpload(args, client) {
   return client.delete({ uploadId: args.upload_id, capability: args.delete_capability });
+}
+
+function uploadCapabilityFromSession(session) {
+  const fragment = new URL(session.upload_url, 'https://preview.invalid').hash.slice(1);
+  const value = new URLSearchParams(fragment).get('upload_capability');
+  if (!value || !/^[A-Za-z0-9_-]{43,256}$/.test(value)) throw new Error('PDF_UPLOAD_CAPABILITY_ENVELOPE_INVALID');
+  return value;
+}
+
+export async function auditPdfAttachment(args, client, auditPipeline, fileDownloader) {
+  const downloaded = await fileDownloader(args.file);
+  const session = await client.create({ requestedMaxBytes: downloaded.byte_length });
+  let operationError;
+  let result;
+  try {
+    const uploaded = await client.upload({
+      uploadId: session.upload_id,
+      capability: uploadCapabilityFromSession(session),
+      bytes: downloaded.bytes,
+    });
+    if (uploaded.byte_sha256 !== downloaded.byte_sha256 || uploaded.byte_length !== downloaded.byte_length) {
+      throw new Error('PDF_ATTACHMENT_BYTE_PROVENANCE_MISMATCH');
+    }
+    await client.finalize({
+      uploadId: session.upload_id,
+      capability: session.finalize_capability,
+      expectedSha256: downloaded.byte_sha256,
+    });
+    const audited = await auditUploadedPdf({
+      upload_id: session.upload_id,
+      audit_capability: session.audit_capability,
+      audit_request: args.audit_request,
+    }, client, auditPipeline);
+    result = {
+      ...audited,
+      attachment: { byte_sha256: downloaded.byte_sha256, byte_length: downloaded.byte_length },
+      lifecycle: { create: 'PASS', upload: 'PASS', finalize: 'PASS', audit: 'PASS', delete: 'PENDING' },
+    };
+  } catch (error) {
+    operationError = error;
+    throw error;
+  } finally {
+    try {
+      const deleted = await client.delete({ uploadId: session.upload_id, capability: session.delete_capability });
+      if (deleted?.verified_absent !== true) throw new Error('PDF_DELETE_NOT_VERIFIED');
+      if (result) result.lifecycle.delete = 'PASS';
+    } catch {
+      throw Object.assign(new Error('PDF_DELETE_NOT_VERIFIED'), { code: 'PDF_DELETE_NOT_VERIFIED', cause: operationError });
+    }
+  }
+  return result;
 }
 
 export function classifyAttachmentEnvelope(args) {
@@ -97,7 +164,7 @@ export function registerAttachmentDiagnosticTool(server) {
   return server;
 }
 
-export function registerPdfUploadTools(server, { uploadClient, auditPipeline, enableAttachmentProbe = false }) {
+export function registerPdfUploadTools(server, { uploadClient, auditPipeline, fileDownloader, enableAttachmentProbe = false }) {
   server.registerTool('create_pdf_upload_session', {
     title: 'Create PDF upload session',
     description: 'Create separate short-lived upload, finalize, audit and delete capabilities. No caller identity is inferred.',
@@ -127,6 +194,22 @@ export function registerPdfUploadTools(server, { uploadClient, auditPipeline, en
     inputSchema: z.object({ upload_id: uploadId, delete_capability: capability }).strict(),
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
   }, async (args) => toolResult(await deletePdfUpload(args, uploadClient)));
+
+  if (fileDownloader) {
+    server.registerTool('audit_pdf_attachment', {
+      title: 'Audit attached PDF',
+      description: 'Download the ChatGPT-provided PDF bytes, verify provenance, run the complete private audit lifecycle, and delete retained bytes.',
+      inputSchema: z.object({ file: openAiFile, audit_request: z.record(z.string(), z.unknown()).default({}) }).strict(),
+      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+      _meta: { 'openai/fileParams': ['file'] },
+    }, async (args) => {
+      try {
+        return toolResult(await auditPdfAttachment(args, uploadClient, auditPipeline, fileDownloader));
+      } catch (error) {
+        return safeAttachmentToolError(error);
+      }
+    });
+  }
 
   if (enableAttachmentProbe) {
     registerAttachmentDiagnosticTool(server);

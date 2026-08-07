@@ -7,7 +7,7 @@ import { SERVER_INSTRUCTIONS, registerNormsTool } from '../server/norms-tool.mjs
 import { resolverClientFromEnv } from '../server/resolver-client.mjs';
 import { publicPageResponse } from './public-pages.mjs';
 import { PdfUploadDurableObject } from './pdf-upload-cloudflare.mjs';
-import { handlePdfUploadRequest, pdfUploadClientFromEnv } from './pdf-upload-http.mjs';
+import { createChatGptFileDownloader, handlePdfUploadRequest, pdfUploadClientFromEnv } from './pdf-upload-http.mjs';
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 const DEFAULT_REQUEST_TIMEOUT_MS = 5_000;
@@ -69,6 +69,7 @@ const createWorkerMcpServer = (env) => registerNormsTool(new McpServer(
   resolverClient: resolverClientFromEnv(env),
   ...(env.ENVIRONMENT === 'preview' ? {
     uploadClient: pdfUploadClientFromEnv(env),
+    fileDownloader: createChatGptFileDownloader(),
     auditPipeline: acknowledgeVerifiedDocumentBundle,
   } : {}),
   enableAttachmentProbe: env.ENVIRONMENT === 'preview' && env.PDF_ATTACHMENT_PROBE_ENABLED === 'true',

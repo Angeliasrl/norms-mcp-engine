@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import { PdfUploadDurableObject } from '../worker/pdf-upload-cloudflare.mjs';
-import { handlePdfUploadRequest, pdfUploadClientFromEnv } from '../worker/pdf-upload-http.mjs';
+import { createChatGptFileDownloader, handlePdfUploadRequest, pdfUploadClientFromEnv } from '../worker/pdf-upload-http.mjs';
 
 const workerSources = `${await readFile(new URL('../worker/index.mjs', import.meta.url), 'utf8')}\n${await readFile(new URL('../worker/pdf-upload-http.mjs', import.meta.url), 'utf8')}`;
 assert(!workerSources.includes('console.'));
@@ -83,6 +83,26 @@ assert(uploadCapability);
 assert.equal(uploadUrl.search, '');
 uploadUrl.hash = '';
 const pdf = new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n');
+
+let downloadRequest;
+const downloader = createChatGptFileDownloader({ fetchImpl: async (url, init) => {
+  downloadRequest = { url: String(url), init };
+  return new Response(pdf, { headers: { 'content-type': 'application/pdf', 'content-length': String(pdf.byteLength) } });
+} });
+const downloaded = await downloader({ download_url: 'https://files.example.test/native-file', file_id: 'file-safe', mime_type: 'application/pdf' });
+assert.equal(downloaded.byte_length, pdf.byteLength);
+assert.equal(downloaded.byte_sha256, createHash('sha256').update(pdf).digest('hex'));
+assert.equal(downloadRequest.url, 'https://files.example.test/native-file');
+assert.equal(downloadRequest.init.redirect, 'error');
+assert.deepEqual(downloadRequest.init.headers, { accept: 'application/pdf' });
+assert.equal(downloadRequest.init.headers.authorization, undefined);
+await assert.rejects(downloader({ download_url: 'http://files.example.test/file', file_id: 'file-safe' }), (error) => error.code === 'PDF_ATTACHMENT_DOWNLOAD_URL_INVALID');
+await assert.rejects(downloader({ download_url: 'https://127.0.0.1/file', file_id: 'file-safe' }), (error) => error.code === 'PDF_ATTACHMENT_DOWNLOAD_URL_INVALID');
+await assert.rejects(downloader({ download_url: 'https://files.example.test/file', file_id: 'file-safe', mime_type: 'text/plain' }), (error) => error.code === 'PDF_ATTACHMENT_DESCRIPTOR_INVALID');
+const badMagic = createChatGptFileDownloader({ fetchImpl: async () => new Response('not-pdf', { headers: { 'content-type': 'application/pdf' } }) });
+await assert.rejects(badMagic({ download_url: 'https://files.example.test/file', file_id: 'file-safe' }), (error) => error.code === 'PDF_MAGIC_INVALID');
+const tooLarge = createChatGptFileDownloader({ fetchImpl: async () => new Response(pdf, { headers: { 'content-type': 'application/pdf', 'content-length': String(20 * 1024 * 1024 + 1) } }) });
+await assert.rejects(tooLarge({ download_url: 'https://files.example.test/file', file_id: 'file-safe' }), (error) => error.code === 'PDF_TOO_LARGE');
 
 let result = await handlePdfUploadRequest(new Request(`${uploadUrl}?capability=${uploadCapability}`, {
   method: 'PUT', headers: { authorization: `Capability ${uploadCapability}`, 'content-length': String(pdf.byteLength) }, body: pdf,

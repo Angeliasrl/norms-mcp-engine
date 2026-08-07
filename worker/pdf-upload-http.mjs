@@ -8,9 +8,14 @@ const MAX_UPSTREAM_ERROR_BYTES = 4 * 1024;
 const PDF_AUDIT_CONTRACT = 'norms-pdf-audit/0.5.1';
 const PDF_DOCUMENT_BUNDLE_VERSION = '0.2.0';
 const DEFAULT_AUDIT_TIMEOUT_MS = 60_000;
+const DEFAULT_ATTACHMENT_DOWNLOAD_TIMEOUT_MS = 15_000;
+const MAX_ATTACHMENT_REDIRECTS = 3;
 const PATH = /^\/pdf-uploads\/([A-Za-z0-9_-]{20,128})(?:\/(finalize|audit))?$/;
 
 function validateChatGptDownloadUrl(value) {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new PdfUploadBoundaryError('PDF_ATTACHMENT_DOWNLOAD_URL_MISSING', 'Attachment download URL is missing.');
+  }
   let url;
   try { url = new URL(value); } catch {
     throw new PdfUploadBoundaryError('PDF_ATTACHMENT_DOWNLOAD_URL_INVALID', 'Attachment download URL is invalid.');
@@ -33,6 +38,19 @@ function validateChatGptDownloadUrl(value) {
     throw new PdfUploadBoundaryError('PDF_ATTACHMENT_DOWNLOAD_URL_INVALID', 'Attachment download URL is not an allowed public HTTPS URL.');
   }
   return url;
+}
+
+function downloadDiagnosticError(code, errorClass, { url, status, redirectCount, startedAt, now, correlationId }) {
+  const error = new PdfUploadBoundaryError(code, 'Attachment download failed.');
+  error.download = Object.freeze({
+    error_class: errorClass,
+    ...(url ? { hostname: url.hostname.toLowerCase() } : {}),
+    ...(status === undefined ? {} : { status }),
+    redirect_count: redirectCount,
+    duration_ms: Math.max(0, Math.round(now() - startedAt)),
+    correlation_id: correlationId,
+  });
+  return error;
 }
 
 async function boundedPdfBytes(response) {
@@ -62,29 +80,101 @@ async function boundedPdfBytes(response) {
   return bytes;
 }
 
-export function createChatGptFileDownloader({ fetchImpl = fetch } = {}) {
+export function createChatGptFileDownloader({
+  fetchImpl = fetch,
+  timeoutMs = DEFAULT_ATTACHMENT_DOWNLOAD_TIMEOUT_MS,
+  now = Date.now,
+  correlationId = () => crypto.randomUUID(),
+} = {}) {
   return async (file) => {
     if (!file || typeof file.file_id !== 'string' || file.file_id.length < 1 || file.file_id.length > 256
         || /[\u0000-\u001f\u007f]/.test(file.file_id)
         || (file.mime_type !== undefined && file.mime_type !== 'application/pdf')) {
       throw new PdfUploadBoundaryError('PDF_ATTACHMENT_DESCRIPTOR_INVALID', 'Attachment descriptor is invalid.');
     }
-    const url = validateChatGptDownloadUrl(file.download_url);
-    let response;
+    const startedAt = now();
+    const requestCorrelationId = correlationId();
+    let redirectCount = 0;
+    let url;
     try {
-      response = await fetchImpl(url, { method: 'GET', redirect: 'error', headers: { accept: 'application/pdf' } });
-    } catch {
-      throw new PdfUploadBoundaryError('PDF_ATTACHMENT_DOWNLOAD_FAILED', 'Attachment download failed.');
+      url = validateChatGptDownloadUrl(file.download_url);
+    } catch (error) {
+      if (error?.code === 'PDF_ATTACHMENT_DOWNLOAD_URL_MISSING') throw error;
+      throw downloadDiagnosticError('PDF_ATTACHMENT_DOWNLOAD_URL_INVALID', 'URL_INVALID', {
+        redirectCount, startedAt, now, correlationId: requestCorrelationId,
+      });
     }
-    if (!(response instanceof Response) || !response.ok) {
-      throw new PdfUploadBoundaryError('PDF_ATTACHMENT_DOWNLOAD_FAILED', 'Attachment download was rejected.');
+    const controller = new AbortController();
+    let timeoutId;
+    const timeout = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+        reject(downloadDiagnosticError('PDF_ATTACHMENT_DOWNLOAD_TIMEOUT', 'TIMEOUT', {
+          url, redirectCount, startedAt, now, correlationId: requestCorrelationId,
+        }));
+      }, timeoutMs);
+    });
+    try {
+      while (true) {
+        let response;
+        try {
+          response = await Promise.race([fetchImpl(url, {
+            method: 'GET', redirect: 'manual', headers: { accept: 'application/pdf' }, signal: controller.signal,
+          }), timeout]);
+        } catch (error) {
+          if (error?.code === 'PDF_ATTACHMENT_DOWNLOAD_TIMEOUT') throw error;
+          throw downloadDiagnosticError('PDF_ATTACHMENT_DOWNLOAD_NETWORK_ERROR', 'NETWORK', {
+            url, redirectCount, startedAt, now, correlationId: requestCorrelationId,
+          });
+        }
+        if (!(response instanceof Response)) {
+          throw downloadDiagnosticError('PDF_ATTACHMENT_DOWNLOAD_NETWORK_ERROR', 'RESPONSE_INVALID', {
+            url, redirectCount, startedAt, now, correlationId: requestCorrelationId,
+          });
+        }
+        if (response.status >= 300 && response.status <= 399) {
+          if (redirectCount >= MAX_ATTACHMENT_REDIRECTS) {
+            throw downloadDiagnosticError('PDF_ATTACHMENT_DOWNLOAD_REDIRECT_LIMIT', 'REDIRECT_LIMIT', {
+              url, status: response.status, redirectCount, startedAt, now, correlationId: requestCorrelationId,
+            });
+          }
+          const location = response.headers.get('location');
+          let next;
+          try {
+            if (!location) throw new Error('missing location');
+            next = validateChatGptDownloadUrl(new URL(location, url).href);
+          } catch {
+            throw downloadDiagnosticError('PDF_ATTACHMENT_DOWNLOAD_REDIRECT_REJECTED', 'REDIRECT_REJECTED', {
+              url, status: response.status, redirectCount, startedAt, now, correlationId: requestCorrelationId,
+            });
+          }
+          url = next;
+          redirectCount += 1;
+          continue;
+        }
+        if (!response.ok) {
+          throw downloadDiagnosticError('PDF_ATTACHMENT_DOWNLOAD_HTTP_ERROR', 'HTTP_STATUS', {
+            url, status: response.status, redirectCount, startedAt, now, correlationId: requestCorrelationId,
+          });
+        }
+        const mediaType = (response.headers.get('content-type') ?? '').split(';', 1)[0].trim().toLowerCase();
+        if (mediaType && mediaType !== 'application/pdf' && mediaType !== 'application/octet-stream') {
+          throw new PdfUploadBoundaryError('PDF_ATTACHMENT_MEDIA_TYPE_INVALID', 'Attachment response is not a PDF media type.');
+        }
+        const bytes = await Promise.race([boundedPdfBytes(response), timeout]);
+        return {
+          bytes,
+          byte_sha256: createHash('sha256').update(bytes).digest('hex'),
+          byte_length: bytes.byteLength,
+          diagnostics: Object.freeze({
+            hostname: url.hostname.toLowerCase(), redirect_count: redirectCount,
+            duration_ms: Math.max(0, Math.round(now() - startedAt)), correlation_id: requestCorrelationId,
+          }),
+        };
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
-    const mediaType = (response.headers.get('content-type') ?? '').split(';', 1)[0].trim().toLowerCase();
-    if (mediaType && mediaType !== 'application/pdf' && mediaType !== 'application/octet-stream') {
-      throw new PdfUploadBoundaryError('PDF_ATTACHMENT_MEDIA_TYPE_INVALID', 'Attachment response is not a PDF media type.');
-    }
-    const bytes = await boundedPdfBytes(response);
-    return { bytes, byte_sha256: createHash('sha256').update(bytes).digest('hex'), byte_length: bytes.byteLength };
   };
 }
 

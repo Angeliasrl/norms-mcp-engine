@@ -36,13 +36,33 @@ function safeAttachmentToolError(error) {
   const upstream = safeAuditToolError(error);
   if (upstream !== null) return upstream;
   const allowed = new Set([
-    'PDF_ATTACHMENT_DESCRIPTOR_INVALID', 'PDF_ATTACHMENT_DOWNLOAD_URL_INVALID',
-    'PDF_ATTACHMENT_DOWNLOAD_FAILED', 'PDF_ATTACHMENT_MEDIA_TYPE_INVALID',
+    'PDF_ATTACHMENT_DESCRIPTOR_INVALID', 'PDF_ATTACHMENT_DOWNLOAD_URL_MISSING',
+    'PDF_ATTACHMENT_DOWNLOAD_URL_INVALID', 'PDF_ATTACHMENT_DOWNLOAD_NETWORK_ERROR',
+    'PDF_ATTACHMENT_DOWNLOAD_TIMEOUT', 'PDF_ATTACHMENT_DOWNLOAD_HTTP_ERROR',
+    'PDF_ATTACHMENT_DOWNLOAD_REDIRECT_LIMIT', 'PDF_ATTACHMENT_DOWNLOAD_REDIRECT_REJECTED',
+    'PDF_ATTACHMENT_MEDIA_TYPE_INVALID',
     'PDF_TOO_LARGE', 'PDF_MAGIC_INVALID', 'PDF_ATTACHMENT_BYTE_PROVENANCE_MISMATCH',
     'PDF_UPLOAD_CAPABILITY_ENVELOPE_INVALID', 'PDF_DELETE_NOT_VERIFIED',
   ]);
   const code = allowed.has(error?.code) ? error.code : allowed.has(error?.message) ? error.message : 'PDF_ATTACHMENT_AUDIT_FAILED';
-  return { isError: true, content: [{ type: 'text', text: code }] };
+  const diagnostic = error?.download;
+  const safeDiagnostic = diagnostic
+    && typeof diagnostic.error_class === 'string' && /^[A-Z_]{3,32}$/.test(diagnostic.error_class)
+    && (diagnostic.hostname === undefined || (typeof diagnostic.hostname === 'string' && /^[a-z0-9.-]{1,253}$/.test(diagnostic.hostname)))
+    && (diagnostic.status === undefined || (Number.isInteger(diagnostic.status) && diagnostic.status >= 100 && diagnostic.status <= 599))
+    && Number.isInteger(diagnostic.redirect_count) && diagnostic.redirect_count >= 0 && diagnostic.redirect_count <= 3
+    && Number.isInteger(diagnostic.duration_ms) && diagnostic.duration_ms >= 0
+    && typeof diagnostic.correlation_id === 'string' && /^[A-Za-z0-9-]{16,64}$/.test(diagnostic.correlation_id)
+    ? diagnostic : null;
+  const fields = safeDiagnostic === null ? [] : [
+    `error_class=${safeDiagnostic.error_class}`,
+    ...(safeDiagnostic.hostname === undefined ? [] : [`hostname=${safeDiagnostic.hostname}`]),
+    ...(safeDiagnostic.status === undefined ? [] : [`status=${safeDiagnostic.status}`]),
+    `redirects=${safeDiagnostic.redirect_count}`,
+    `duration_ms=${safeDiagnostic.duration_ms}`,
+    `correlation_id=${safeDiagnostic.correlation_id}`,
+  ];
+  return { isError: true, content: [{ type: 'text', text: [code, ...fields].join(' ') }] };
 }
 
 export async function createPdfUploadSession(args, client) {
@@ -102,6 +122,7 @@ export async function auditPdfAttachment(args, client, auditPipeline, fileDownlo
     result = {
       ...audited,
       attachment: { byte_sha256: downloaded.byte_sha256, byte_length: downloaded.byte_length },
+      download: downloaded.diagnostics,
       lifecycle: { create: 'PASS', upload: 'PASS', finalize: 'PASS', audit: 'PASS', delete: 'PENDING' },
     };
   } catch (error) {

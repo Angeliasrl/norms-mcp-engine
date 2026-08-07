@@ -85,20 +85,45 @@ uploadUrl.hash = '';
 const pdf = new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n');
 
 let downloadRequest;
-const downloader = createChatGptFileDownloader({ fetchImpl: async (url, init) => {
+const fixedCorrelationId = '11111111-1111-4111-8111-111111111111';
+const descriptor = { download_url: 'https://files.example.test/native-file?signature=redacted', file_id: 'file-safe', mime_type: 'application/pdf' };
+const downloader = createChatGptFileDownloader({ correlationId: () => fixedCorrelationId, now: () => 100, fetchImpl: async (url, init) => {
   downloadRequest = { url: String(url), init };
   return new Response(pdf, { headers: { 'content-type': 'application/pdf', 'content-length': String(pdf.byteLength) } });
 } });
-const downloaded = await downloader({ download_url: 'https://files.example.test/native-file', file_id: 'file-safe', mime_type: 'application/pdf' });
+const downloaded = await downloader(descriptor);
 assert.equal(downloaded.byte_length, pdf.byteLength);
 assert.equal(downloaded.byte_sha256, createHash('sha256').update(pdf).digest('hex'));
-assert.equal(downloadRequest.url, 'https://files.example.test/native-file');
-assert.equal(downloadRequest.init.redirect, 'error');
+assert.equal(downloadRequest.url, descriptor.download_url);
+assert.equal(downloadRequest.init.redirect, 'manual');
 assert.deepEqual(downloadRequest.init.headers, { accept: 'application/pdf' });
 assert.equal(downloadRequest.init.headers.authorization, undefined);
+assert(downloadRequest.init.signal instanceof AbortSignal);
+assert.deepEqual(downloaded.diagnostics, { hostname: 'files.example.test', redirect_count: 0, duration_ms: 0, correlation_id: fixedCorrelationId });
+await assert.rejects(downloader({ ...descriptor, download_url: undefined }), (error) => error.code === 'PDF_ATTACHMENT_DOWNLOAD_URL_MISSING');
 await assert.rejects(downloader({ download_url: 'http://files.example.test/file', file_id: 'file-safe' }), (error) => error.code === 'PDF_ATTACHMENT_DOWNLOAD_URL_INVALID');
 await assert.rejects(downloader({ download_url: 'https://127.0.0.1/file', file_id: 'file-safe' }), (error) => error.code === 'PDF_ATTACHMENT_DOWNLOAD_URL_INVALID');
 await assert.rejects(downloader({ download_url: 'https://files.example.test/file', file_id: 'file-safe', mime_type: 'text/plain' }), (error) => error.code === 'PDF_ATTACHMENT_DESCRIPTOR_INVALID');
+const networkFailure = createChatGptFileDownloader({ correlationId: () => fixedCorrelationId, now: () => 100, fetchImpl: async () => { throw new Error('socket details must not escape'); } });
+await assert.rejects(networkFailure(descriptor), (error) => error.code === 'PDF_ATTACHMENT_DOWNLOAD_NETWORK_ERROR' && error.download.error_class === 'NETWORK');
+const timeoutFailure = createChatGptFileDownloader({ timeoutMs: 1, correlationId: () => fixedCorrelationId, now: () => 100, fetchImpl: () => new Promise(() => {}) });
+await assert.rejects(timeoutFailure(descriptor), (error) => error.code === 'PDF_ATTACHMENT_DOWNLOAD_TIMEOUT' && error.download.error_class === 'TIMEOUT');
+const missingLocation = createChatGptFileDownloader({ correlationId: () => fixedCorrelationId, now: () => 100, fetchImpl: async () => new Response(null, { status: 302 }) });
+await assert.rejects(missingLocation(descriptor), (error) => error.code === 'PDF_ATTACHMENT_DOWNLOAD_REDIRECT_REJECTED' && error.download.status === 302);
+const unsafeRedirect = createChatGptFileDownloader({ correlationId: () => fixedCorrelationId, now: () => 100, fetchImpl: async () => new Response(null, { status: 302, headers: { location: 'http://127.0.0.1/private' } }) });
+await assert.rejects(unsafeRedirect(descriptor), (error) => error.code === 'PDF_ATTACHMENT_DOWNLOAD_REDIRECT_REJECTED');
+let redirects = 0;
+const redirectLimit = createChatGptFileDownloader({ correlationId: () => fixedCorrelationId, now: () => 100, fetchImpl: async () => new Response(null, { status: 302, headers: { location: `https://files${++redirects}.example.test/next` } }) });
+await assert.rejects(redirectLimit(descriptor), (error) => error.code === 'PDF_ATTACHMENT_DOWNLOAD_REDIRECT_LIMIT' && error.download.redirect_count === 3);
+for (const status of [404, 500]) {
+  const httpFailure = createChatGptFileDownloader({ correlationId: () => fixedCorrelationId, now: () => 100, fetchImpl: async () => new Response(null, { status }) });
+  await assert.rejects(httpFailure(descriptor), (error) => error.code === 'PDF_ATTACHMENT_DOWNLOAD_HTTP_ERROR' && error.download.status === status);
+}
+let redirectStep = 0;
+const redirectSuccess = createChatGptFileDownloader({ correlationId: () => fixedCorrelationId, now: () => 100, fetchImpl: async () => redirectStep++ === 0
+  ? new Response(null, { status: 302, headers: { location: 'https://cdn.example.test/file.pdf?temporary=redacted' } })
+  : new Response(pdf, { headers: { 'content-type': 'application/pdf' } }) });
+assert.equal((await redirectSuccess(descriptor)).diagnostics.redirect_count, 1);
 const badMagic = createChatGptFileDownloader({ fetchImpl: async () => new Response('not-pdf', { headers: { 'content-type': 'application/pdf' } }) });
 await assert.rejects(badMagic({ download_url: 'https://files.example.test/file', file_id: 'file-safe' }), (error) => error.code === 'PDF_MAGIC_INVALID');
 const tooLarge = createChatGptFileDownloader({ fetchImpl: async () => new Response(pdf, { headers: { 'content-type': 'application/pdf', 'content-length': String(20 * 1024 * 1024 + 1) } }) });

@@ -34,10 +34,12 @@ const attachmentResult = await auditPdfAttachment({ file: {
   download_url: 'https://files.example.test/download', file_id: 'file-safe', mime_type: 'application/pdf', file_name: 'fixture.pdf',
 }, audit_request: {} }, client, async () => ({ document_bundle_sha256: 'd'.repeat(64) }), async () => ({
   bytes: new TextEncoder().encode('%PDF-fixture'), byte_sha256: 'b'.repeat(64), byte_length: 12,
+  diagnostics: { hostname: 'files.example.test', redirect_count: 1, duration_ms: 12, correlation_id: '11111111-1111-4111-8111-111111111111' },
 }));
 assert.deepEqual(attachmentResult.lifecycle, { create: 'PASS', upload: 'PASS', finalize: 'PASS', audit: 'PASS', delete: 'PASS' });
 assert.equal(attachmentResult.attachment.byte_sha256, 'b'.repeat(64));
 assert.equal(attachmentResult.attachment.byte_length, 12);
+assert.equal(attachmentResult.download.hostname, 'files.example.test');
 assert(!JSON.stringify(attachmentResult).includes('capability'));
 assert(!JSON.stringify(attachmentResult).includes('file-safe'));
 assert.equal(calls.at(-1)[0], 'delete');
@@ -75,12 +77,16 @@ assert(!surfaced.content[0].text.includes('must not cross'));
 const safeRegistrations = new Map();
 registerPdfUploadTools({ registerTool: (name, schema, handler) => safeRegistrations.set(name, { schema, handler }) }, {
   uploadClient: client, auditPipeline: async () => assert.fail('audit pipeline must not run'),
-  fileDownloader: async () => { throw Object.assign(new Error('Authorization Capability secret fragment'), { code: 'PDF_ATTACHMENT_DOWNLOAD_FAILED' }); },
+  fileDownloader: async () => {
+    const error = Object.assign(new Error('Authorization Capability secret fragment'), { code: 'PDF_ATTACHMENT_DOWNLOAD_HTTP_ERROR' });
+    error.download = { error_class: 'HTTP_STATUS', hostname: 'files.example.test', status: 403, redirect_count: 1, duration_ms: 25, correlation_id: '11111111-1111-4111-8111-111111111111' };
+    throw error;
+  },
 });
 const safeAttachmentError = await safeRegistrations.get('audit_pdf_attachment').handler({
   file: { download_url: 'https://files.example.test/download', file_id: 'file-safe' }, audit_request: {},
 });
-assert.deepEqual(safeAttachmentError, { isError: true, content: [{ type: 'text', text: 'PDF_ATTACHMENT_DOWNLOAD_FAILED' }] });
+assert.deepEqual(safeAttachmentError, { isError: true, content: [{ type: 'text', text: 'PDF_ATTACHMENT_DOWNLOAD_HTTP_ERROR error_class=HTTP_STATUS hostname=files.example.test status=403 redirects=1 duration_ms=25 correlation_id=11111111-1111-4111-8111-111111111111' }] });
 assert(!JSON.stringify(safeAttachmentError).includes('Authorization'));
 
 assert.equal(classifyAttachmentEnvelope({ bytes: new Uint8Array() }).classification, 'NATIVE_FILE_HANDOFF_PASS');

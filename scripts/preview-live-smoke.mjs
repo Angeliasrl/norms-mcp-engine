@@ -5,9 +5,10 @@ import { performance } from 'node:perf_hooks';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { PUBLIC_CURRENT_OPERATIONAL_EXAMPLE } from '../server/public-input-contract.mjs';
+import { callToolStructured, withPdfDelete } from './preview-live-smoke-support.mjs';
 
 const [baseUrl, outputPath] = process.argv.slice(2);
-assert.ok(/^https:\/\/norms-mcp-e2e-preview\.[a-z0-9-]+\.workers\.dev$/.test(baseUrl ?? ''), 'isolated preview workers.dev URL required');
+assert.ok(/^https:\/\/norms-mcp-preview-0-2-1-pipeline-0-5-1\.[a-z0-9-]+\.workers\.dev$/.test(baseUrl ?? ''), 'isolated preview workers.dev URL required');
 assert.ok(outputPath, 'output path required');
 
 const expectedTools = [
@@ -74,49 +75,46 @@ try {
     '../evidence/NORMS_ITALIAN_PUBLIC_PROCUREMENT_AUDIT_02_DIRECT_AWARD_THRESHOLD/raw/CCIAA_Firenze_Determinazione_41_2024.pdf',
     import.meta.url,
   )));
-  const sessionResult = await client.callTool({ name: 'create_pdf_upload_session', arguments: { max_bytes: 1024 * 1024 } });
-  const session = sessionResult.structuredContent;
+  const session = await callToolStructured(client, { name: 'create_pdf_upload_session', arguments: { max_bytes: 1024 * 1024 } });
   const uploadTarget = new URL(session.upload_url, normalized);
   const uploadCapability = new URLSearchParams(uploadTarget.hash.slice(1)).get('upload_capability');
   assert(uploadCapability, 'upload capability must be carried in the fragment');
   assert.equal(uploadTarget.search, '');
   uploadTarget.hash = '';
-  const queryRejected = await fetch(`${uploadTarget}?capability=${encodeURIComponent(uploadCapability)}`, {
-    method: 'PUT',
-    headers: { authorization: `Capability ${uploadCapability}`, 'content-type': 'application/pdf', 'content-length': String(pdfBytes.byteLength) },
-    body: pdfBytes,
+  let uploaded;
+  const audited = await withPdfDelete(client, session, async () => {
+    const queryRejected = await fetch(`${uploadTarget}?capability=forbidden-query-value`, {
+      method: 'PUT',
+      headers: { authorization: `Capability ${uploadCapability}`, 'content-type': 'application/pdf', 'content-length': String(pdfBytes.byteLength) },
+      body: pdfBytes,
+    });
+    assert.equal(queryRejected.status, 400);
+    assert.equal((await queryRejected.json()).error.code, 'CAPABILITY_QUERY_REJECTED');
+    const uploadResponse = await fetch(uploadTarget, {
+      method: 'PUT',
+      headers: { authorization: `Capability ${uploadCapability}`, 'content-type': 'application/pdf', 'content-length': String(pdfBytes.byteLength) },
+      body: pdfBytes,
+    });
+    assert.equal(uploadResponse.status, 200);
+    uploaded = await uploadResponse.json();
+    assert.match(uploaded.byte_sha256, /^[0-9a-f]{64}$/);
+    const finalized = await callToolStructured(client, { name: 'finalize_pdf_upload', arguments: {
+      upload_id: session.upload_id,
+      finalize_capability: session.finalize_capability,
+      expected_sha256: uploaded.byte_sha256,
+    } });
+    assert.equal(finalized.state, 'FINALIZED');
+    return callToolStructured(client, { name: 'audit_uploaded_pdf', arguments: {
+      upload_id: session.upload_id,
+      audit_capability: session.audit_capability,
+      audit_request: {},
+    } });
   });
-  assert.equal(queryRejected.status, 400);
-  assert.equal((await queryRejected.json()).error.code, 'CAPABILITY_QUERY_REJECTED');
-  const uploadResponse = await fetch(uploadTarget, {
-    method: 'PUT',
-    headers: { authorization: `Capability ${uploadCapability}`, 'content-type': 'application/pdf', 'content-length': String(pdfBytes.byteLength) },
-    body: pdfBytes,
-  });
-  assert.equal(uploadResponse.status, 200);
-  const uploaded = await uploadResponse.json();
-  assert.match(uploaded.byte_sha256, /^[0-9a-f]{64}$/);
-  const finalized = await client.callTool({ name: 'finalize_pdf_upload', arguments: {
-    upload_id: session.upload_id,
-    finalize_capability: session.finalize_capability,
-    expected_sha256: uploaded.byte_sha256,
-  } });
-  assert.equal(finalized.structuredContent.state, 'FINALIZED');
-  const audited = await client.callTool({ name: 'audit_uploaded_pdf', arguments: {
-    upload_id: session.upload_id,
-    audit_capability: session.audit_capability,
-    audit_request: {},
-  } });
-  assert.equal(audited.structuredContent.byte_sha256, uploaded.byte_sha256);
-  assert.equal(audited.structuredContent.pipeline_result.bundle_version, '0.2.0');
-  assert.equal(audited.structuredContent.pipeline_result.source.byte_sha256, uploaded.byte_sha256);
-  assert(audited.structuredContent.pipeline_result.pages.length > 0);
-  assert(!JSON.stringify(audited.structuredContent).includes('PDF_NORMATIVE_PIPELINE_NOT_BOUND'));
-  const deleted = await client.callTool({ name: 'delete_pdf_upload', arguments: {
-    upload_id: session.upload_id,
-    delete_capability: session.delete_capability,
-  } });
-  assert.equal(deleted.structuredContent.verified_absent, true);
+  assert.equal(audited.byte_sha256, uploaded.byte_sha256);
+  assert.equal(audited.pipeline_result.bundle_version, '0.2.0');
+  assert.equal(audited.pipeline_result.source.byte_sha256, uploaded.byte_sha256);
+  assert(audited.pipeline_result.pages.length > 0);
+  assert(!JSON.stringify(audited).includes('PDF_NORMATIVE_PIPELINE_NOT_BOUND'));
 
   const demoTimed = await timed(() => client.callTool({ name: 'run_positive_current_operational_demo', arguments: {} }));
   const demo = demoTimed.value.structuredContent;

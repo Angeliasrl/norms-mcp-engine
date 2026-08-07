@@ -1,0 +1,116 @@
+{
+  "schema_version": "norms-chatgpt-pdf-preview-evidence/0.1",
+  "evidence_id": "CHIUSURA_EVIDENCE_CHATGPT_PDF_PREVIEW_0_2_2_01",
+  "generated_at": "2026-08-07T16:37:56.496Z",
+  "status": "EVIDENCE_PASS_ANCHOR_PENDING",
+  "baseline": {
+    "repository": "Angeliasrl/norms-mcp-engine",
+    "branch": "feat/cloudflare-preview-0.5.3-0.2.2",
+    "mcp_preview_commit": "bb00f85f1579dd56a29a7469178ef1a42088b30f",
+    "ci": {
+      "run_id": 31195971736,
+      "conclusion": "success",
+      "checks": [
+        "suite (20)",
+        "suite (22)",
+        "suite (24)"
+      ]
+    },
+    "worker": {
+      "version_id": "22766d5d-d190-40ef-a484-944bd479f039",
+      "endpoint": "https://norms-mcp-preview-0-2-2-pipeline-0-5-3.friva1947.workers.dev",
+      "health": "PASS"
+    },
+    "pipeline": {
+      "commit": "b1f0baef902abdf2a77208e5e567cc522dc12e85",
+      "publication_commit": "1616ed4f1a7ec601c1e9fd913ee531279a6c01c8",
+      "publication_ci_run_id": 31191426777,
+      "publication_ci_run_attempt": 2,
+      "image_manifest_digest": "sha256:92835dd5c86e730250f586a7dee2ddab04f961bd5dc6ad726ca5ec743a63b73c"
+    },
+    "production": {
+      "version_id": "0466a165-39a5-4024-b24d-8e91f830a45b",
+      "server_version": "0.1.1",
+      "invariants_verified": true,
+      "modified": false
+    }
+  },
+  "claims": [
+    {
+      "id": "CHATGPT_EMPTY_AUDIT_PASS",
+      "claim": "The independently reported ChatGPT PDF preview completed byte verification, finalize, audit, delete and object-scoped verified cleanup; NORMS Core was correctly not called for an empty audit_request.",
+      "basis": {
+        "type": "INDEPENDENT_CHATGPT_RESULT_RECORDED_BY_OPERATOR",
+        "fixture_identity_locally_verified": true
+      },
+      "proof": {
+        "document_bundle_version": "0.2.1",
+        "pdf_sha256": "254e301772cd54612d3e0e620434f3f94e341be4a94b7a43ea87642eaf2211e9",
+        "document_bundle_sha256": "b09a8ca4257167b242e2c8b840aece177d3374a94424d1dc41605a877a7779b9",
+        "pages": 1,
+        "byte_verification": "PASS",
+        "finalize": "PASS",
+        "audit": "PASS",
+        "delete": "PASS",
+        "cleanup_claim": "SPECIFIC_UPLOADED_OBJECT_ABSENT",
+        "cleanup_scope": {
+          "object": "SINGLE_OPAQUE_UPLOAD_OBJECT",
+          "session": "SINGLE_UPLOAD_SESSION"
+        },
+        "storage_liveness": "LIVE",
+        "absence_proof": {
+          "type": "DIRECT_STORAGE_METADATA_LOOKUP",
+          "result": "ABSENT"
+        },
+        "verified_absent": true,
+        "norms_core_called": false
+      },
+      "limit": "No native ChatGPT envelope, signed URL, capability or original response payload is retained. Cleanup proof is limited to one opaque object and one upload session and does not prove absence from backups, logs or external systems. An empty audit_request is not a normative assessment."
+    },
+    {
+      "id": "SYNTHETIC_CURRENT_OPERATIONAL_CORE_SMOKE_PASS",
+      "claim": "A separate live preview smoke using the canonical synthetic CURRENT_OPERATIONAL fixture called NORMS Core and completed verified cleanup.",
+      "basis": {
+        "type": "LIVE_PREVIEW_SMOKE",
+        "runner": "scripts/preview-live-core-pdf-smoke.mjs",
+        "report": "CURRENT_OPERATIONAL_SMOKE.json"
+      },
+      "proof": {
+        "core_called": true,
+        "authorizes_current_operational": true,
+        "admissible": true,
+        "blocking": [],
+        "unknown": [],
+        "unexamined": false,
+        "deleted": true,
+        "verified_absent": true,
+        "cleanup_checked_at": "2026-08-07T16:37:48.250Z"
+      },
+      "limit": "The smoke uses a synthetic fixture and does not certify real-world facts, compliance or legal validity. It is distinct from the ChatGPT empty-request audit."
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "VERBALE.md",
+      "sha256": "275647de885afa49ccb451aeb2791563a754618955e9638f05e3f7f94a5e2b94"
+    },
+    {
+      "path": "CURRENT_OPERATIONAL_SMOKE.json",
+      "sha256": "ea54eff26ba74a724c7b56e973fee61dee8118f837bfa1caf970ac8fd4d6c158"
+    }
+  ],
+  "rfc3161": {
+    "tsa": null,
+    "timestamp": null,
+    "token": null,
+    "verification": "NOT_RUN",
+    "reason": "NO_CONFIGURED_AND_VERIFIABLE_RFC3161_PROCEDURE"
+  },
+  "prohibited_data": {
+    "secrets": false,
+    "capabilities": false,
+    "signed_urls": false,
+    "bucket_keys": false,
+    "personal_data": false
+  }
+}

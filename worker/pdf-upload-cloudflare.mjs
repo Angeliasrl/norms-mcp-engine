@@ -155,7 +155,7 @@ export class PdfUploadDurableObject extends DurableObject {
 }
 
 /** Private R2 adapter. The caller never supplies a bucket, object key, or URL. */
-export function createPrivateR2UploadAdapter({ bucket, namespace, maxBytes = 20 * 1024 * 1024, ttlSeconds = 300 }) {
+export function createPrivateR2UploadAdapter({ bucket, namespace, maxBytes = 20 * 1024 * 1024, ttlSeconds = 300, now = Date.now }) {
   if (!bucket || !namespace) throw new PdfUploadBoundaryError('UPLOAD_BINDING_MISSING', 'Private R2 and Durable Object bindings are required.');
   const stubFor = (uploadId) => namespace.get(namespace.idFromString(uploadId));
   return {
@@ -224,8 +224,38 @@ export function createPrivateR2UploadAdapter({ bucket, namespace, maxBytes = 20 
     async completeAudit({ uploadId }) { return stubFor(uploadId).consumeAudit(); },
     async fail({ uploadId, code }) { return stubFor(uploadId).fail(code); },
     async delete({ uploadId, capability }) {
-      const stub = stubFor(uploadId); const result = await stub.delete({ capability }); await bucket.delete(result.object_key);
-      return { upload_id: uploadId, deleted: true, verified_absent: (await bucket.head(result.object_key)) === null };
+      const stub = stubFor(uploadId); const result = await stub.delete({ capability });
+      let deleted = false;
+      try { await bucket.delete(result.object_key); deleted = true; } catch { deleted = false; }
+      let storageOutcome = 'UNKNOWN';
+      let storageLiveness = 'UNAVAILABLE';
+      try {
+        storageOutcome = (await bucket.head(result.object_key)) === null ? 'ABSENT' : 'PRESENT';
+        storageLiveness = 'LIVE';
+      } catch { /* The tri-state result records unavailable verification without leaking storage details. */ }
+      const verifiedAbsent = deleted && storageLiveness === 'LIVE'
+        ? storageOutcome === 'ABSENT'
+        : storageOutcome === 'PRESENT' ? false : null;
+      const blockers = [
+        ...(deleted ? [] : ['PDF_DELETE_OPERATION_FAILED']),
+        ...(storageLiveness === 'UNAVAILABLE' ? ['PDF_DELETE_STORAGE_VERIFICATION_UNAVAILABLE'] : []),
+        ...(storageOutcome === 'PRESENT' ? ['PDF_DELETE_OBJECT_STILL_PRESENT'] : []),
+      ];
+      return {
+        upload_id: uploadId,
+        deleted,
+        verified_absent: verifiedAbsent,
+        cleanup_evidence: {
+          claim: 'SPECIFIC_UPLOADED_OBJECT_ABSENT',
+          scope: { object: 'SINGLE_OPAQUE_UPLOAD_OBJECT', session: 'SINGLE_UPLOAD_SESSION' },
+          checked_at: new Date(now()).toISOString(),
+          method: 'R2_HEAD_AFTER_DELETE',
+          storage_source: { liveness: storageLiveness, outcome: storageOutcome },
+          proof: { type: 'DIRECT_STORAGE_METADATA_LOOKUP', result: storageOutcome },
+          blockers,
+          limits: ['Does not prove absence from backups, logs, or external systems.'],
+        },
+      };
     },
   };
 }

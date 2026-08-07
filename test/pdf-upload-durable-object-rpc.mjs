@@ -89,7 +89,12 @@ try {
   const deleted = (await connection.client.callTool({ name: 'delete_pdf_upload', arguments: {
     upload_id: created.upload_id, delete_capability: created.delete_capability,
   } })).structuredContent;
-  assert.deepEqual(deleted, { upload_id: created.upload_id, deleted: true, verified_absent: true });
+  assert.equal(deleted.upload_id, created.upload_id);
+  assert.equal(deleted.deleted, true);
+  assert.equal(deleted.verified_absent, true);
+  assert.equal(deleted.cleanup_evidence.claim, 'SPECIFIC_UPLOADED_OBJECT_ABSENT');
+  assert.equal(deleted.cleanup_evidence.storage_source.outcome, 'ABSENT');
+  assert.match(deleted.cleanup_evidence.checked_at, /^\d{4}-\d{2}-\d{2}T/);
   await connection.transport.close();
   console.log('pdf-upload-durable-object-rpc workerd binding: PASS');
 } finally {

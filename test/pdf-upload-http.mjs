@@ -4,11 +4,27 @@ import { readFile } from 'node:fs/promises';
 
 import { PdfUploadDurableObject } from '../worker/pdf-upload-cloudflare.mjs';
 import { createChatGptFileDownloader, handlePdfUploadRequest, pdfUploadClientFromEnv } from '../worker/pdf-upload-http.mjs';
+import { auditVerifiedDocumentBundle } from '../server/pdf-audit-pipeline.mjs';
+import { POSITIVE_CURRENT_OPERATIONAL_DEMO_01 } from '../server/positive-current-operational-demo-fixture.mjs';
 
 const workerSources = `${await readFile(new URL('../worker/index.mjs', import.meta.url), 'utf8')}\n${await readFile(new URL('../worker/pdf-upload-http.mjs', import.meta.url), 'utf8')}`;
 assert(!workerSources.includes('console.'));
 assert(!workerSources.includes('searchParams.get'));
 assert(!workerSources.includes('PDF_UPLOAD_CAPABILITY_HMAC_KEY ??'));
+
+const emptyAudit = await auditVerifiedDocumentBundle({ audit_request: {} });
+assert.equal(emptyAudit.normative_assessment, null);
+assert.equal(emptyAudit.norms_output_sha256, null);
+assert.deepEqual(emptyAudit.limitations, ['NORMS_CORE_NOT_CALLED']);
+const canonicalAudit = await auditVerifiedDocumentBundle({ audit_request: {
+  fixture_id: POSITIVE_CURRENT_OPERATIONAL_DEMO_01.fixture_id,
+  fixture_version: POSITIVE_CURRENT_OPERATIONAL_DEMO_01.fixture_version,
+  request: structuredClone(POSITIVE_CURRENT_OPERATIONAL_DEMO_01.request),
+} });
+assert.equal(canonicalAudit.normative_assessment.authorizes_current_operational, true);
+assert.match(canonicalAudit.audit_request_sha256, /^[0-9a-f]{64}$/);
+assert.match(canonicalAudit.norms_output_sha256, /^[0-9a-f]{64}$/);
+assert.deepEqual(canonicalAudit.limitations, []);
 
 class MemoryStorage {
   values = new Map();

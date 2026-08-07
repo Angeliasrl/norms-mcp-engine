@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import { auditPdfAttachment, auditUploadedPdf, classifyAttachmentEnvelope, createPdfUploadSession, deletePdfUpload, finalizePdfUpload, registerAttachmentDiagnosticTool, registerPdfUploadTools } from '../server/pdf-upload-tools.mjs';
 
 const caps = { finalize: 'f'.repeat(43), audit: 'a'.repeat(43), delete: 'd'.repeat(43) };
+const cleanupEvidence = {
+  claim: 'SPECIFIC_UPLOADED_OBJECT_ABSENT', scope: { object: 'SINGLE_OPAQUE_UPLOAD_OBJECT', session: 'SINGLE_UPLOAD_SESSION' },
+  checked_at: '2026-08-07T00:00:00.000Z', method: 'R2_HEAD_AFTER_DELETE',
+  storage_source: { liveness: 'LIVE', outcome: 'ABSENT' }, proof: { type: 'DIRECT_STORAGE_METADATA_LOOKUP', result: 'ABSENT' },
+  blockers: [], limits: ['Does not prove absence from backups, logs, or external systems.'],
+};
 const calls = [];
 const client = {
   create: async (v) => (calls.push(['create', v]), {
@@ -11,15 +17,16 @@ const client = {
   upload: async (v) => (calls.push(['upload', { ...v, bytes: `[${v.bytes.byteLength} bytes]` }]), { upload_id: v.uploadId, state: 'UPLOADED', byte_sha256: 'b'.repeat(64), byte_length: v.bytes.byteLength }),
   finalize: async (v) => (calls.push(['finalize', v]), { upload_id: v.uploadId, state: 'FINALIZED', byte_sha256: 'b'.repeat(64) }),
   audit: async (v) => (calls.push(['audit', v]), { source: { byte_sha256: 'b'.repeat(64), text_sha256: 'c'.repeat(64) }, pages: [{ page: 1, blocks: [{ block_id: 'p1:b1' }] }] }),
-  delete: async (v) => (calls.push(['delete', v]), { deleted: true, verified_absent: true }),
+  delete: async (v) => (calls.push(['delete', v]), { deleted: true, verified_absent: true, cleanup_evidence: cleanupEvidence }),
 };
 assert.equal((await createPdfUploadSession({}, client)).upload_id.length, 24);
 assert.equal((await finalizePdfUpload({ upload_id: 'a'.repeat(24), finalize_capability: caps.finalize }, client)).state, 'FINALIZED');
 let coreCalls = 0;
 let result = await auditUploadedPdf({ upload_id: 'a'.repeat(24), audit_capability: caps.audit, audit_request: {} }, client, async () => {
-  coreCalls += 1; return { document_bundle_sha256: 'd'.repeat(64) };
+  coreCalls += 1; return { normative_assessment: null, audit_request_sha256: 'd'.repeat(64), norms_output_sha256: null, blocking: [], limitations: ['NORMS_CORE_NOT_CALLED'] };
 });
 assert.equal(coreCalls, 1); assert.equal(result.byte_sha256, 'b'.repeat(64));
+assert.equal(result.pipeline_result.bundle_version, '0.2.1');
 assert.notEqual(result.byte_sha256, result.derived_hashes.document_bundle_sha256);
 const bad = { ...client, audit: async () => ({ source: {}, pages: [] }) };
 result = await auditUploadedPdf({ upload_id: 'a'.repeat(24), audit_capability: caps.audit, audit_request: {} }, bad, async () => { coreCalls += 1; });
@@ -32,17 +39,32 @@ assert(!JSON.stringify(calls).includes('%PDF'));
 
 const attachmentResult = await auditPdfAttachment({ file: {
   download_url: 'https://files.example.test/download', file_id: 'file-safe', mime_type: 'application/pdf', file_name: 'fixture.pdf',
-}, audit_request: {} }, client, async () => ({ document_bundle_sha256: 'd'.repeat(64) }), async () => ({
+}, audit_request: {} }, client, async () => ({ normative_assessment: null, audit_request_sha256: 'd'.repeat(64), norms_output_sha256: null, blocking: [], limitations: ['NORMS_CORE_NOT_CALLED'] }), async () => ({
   bytes: new TextEncoder().encode('%PDF-fixture'), byte_sha256: 'b'.repeat(64), byte_length: 12,
   diagnostics: { hostname: 'files.example.test', redirect_count: 1, duration_ms: 12, correlation_id: '11111111-1111-4111-8111-111111111111' },
 }));
-assert.deepEqual(attachmentResult.lifecycle, { create: 'PASS', upload: 'PASS', finalize: 'PASS', audit: 'PASS', delete: 'PASS' });
+assert.deepEqual(attachmentResult.lifecycle, { create: 'PASS', upload: 'PASS', finalize: 'PASS', audit: 'PASS', delete: 'PASS', verified_absent: true });
+assert.equal(attachmentResult.pipeline_result.bundle_version, '0.2.1');
+assert.deepEqual(attachmentResult.pipeline_result.cleanup, cleanupEvidence);
 assert.equal(attachmentResult.attachment.byte_sha256, 'b'.repeat(64));
 assert.equal(attachmentResult.attachment.byte_length, 12);
 assert.equal(attachmentResult.download.hostname, 'files.example.test');
 assert(!JSON.stringify(attachmentResult).includes('capability'));
 assert(!JSON.stringify(attachmentResult).includes('file-safe'));
 assert.equal(calls.at(-1)[0], 'delete');
+
+const unknownCleanup = structuredClone(cleanupEvidence);
+unknownCleanup.storage_source = { liveness: 'UNAVAILABLE', outcome: 'UNKNOWN' };
+unknownCleanup.proof.result = 'UNKNOWN';
+unknownCleanup.blockers = ['PDF_DELETE_STORAGE_VERIFICATION_UNAVAILABLE'];
+const unknownResult = await auditPdfAttachment({ file: {
+  download_url: 'https://files.example.test/download', file_id: 'file-safe', mime_type: 'application/pdf',
+}, audit_request: {} }, { ...client, delete: async () => ({ deleted: true, verified_absent: null, cleanup_evidence: unknownCleanup }) },
+async () => ({ normative_assessment: null, audit_request_sha256: 'd'.repeat(64), norms_output_sha256: null, blocking: [], limitations: ['NORMS_CORE_NOT_CALLED'] }),
+async () => ({ bytes: new TextEncoder().encode('%PDF-fixture'), byte_sha256: 'b'.repeat(64), byte_length: 12 }));
+assert.equal(unknownResult.lifecycle.delete, 'PASS');
+assert.equal(unknownResult.lifecycle.verified_absent, null);
+assert(unknownResult.blocking.includes('PDF_DELETE_STORAGE_VERIFICATION_UNAVAILABLE'));
 
 let cleanupCalled = false;
 await assert.rejects(auditPdfAttachment({ file: {

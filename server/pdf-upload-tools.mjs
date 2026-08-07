@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import * as z from 'zod/v4';
 
 const uploadId = z.string().regex(/^[A-Za-z0-9_-]{20,128}$/);
@@ -7,6 +8,12 @@ const openAiFile = z.object({
   download_url: z.url(), file_id: z.string(), mime_type: z.string().optional(), file_name: z.string().optional(),
 }).strict();
 const toolResult = (structuredContent) => ({ structuredContent, content: [{ type: 'text', text: JSON.stringify(structuredContent) }] });
+const canonicalJson = (value) => value === null || typeof value !== 'object'
+  ? JSON.stringify(value)
+  : Array.isArray(value)
+    ? `[${value.map(canonicalJson).join(',')}]`
+    : `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+const sha256Canonical = (value) => createHash('sha256').update(canonicalJson(value)).digest('hex');
 
 function safeAuditToolError(error) {
   const upstream = error?.upstream;
@@ -76,12 +83,27 @@ export async function auditUploadedPdf(args, client, auditPipeline) {
   if (!pipelineResult?.source?.byte_sha256 || !Array.isArray(pipelineResult.pages)) {
     return { normative_assessment: null, pipeline_result: null, blocking: ['PDF_PIPELINE_NOT_VERIFIED'], limitations: ['NORMS_CORE_NOT_CALLED'] };
   }
-  const normativeAssessment = await auditPipeline({ upload_id: args.upload_id, document_bundle: pipelineResult, audit_request: args.audit_request });
+  const auditResult = await auditPipeline({ upload_id: args.upload_id, document_bundle: pipelineResult, audit_request: args.audit_request });
+  const boundBundle = {
+    ...pipelineResult,
+    bundle_version: '0.2.1',
+    audit_binding: {
+      pdf_sha256: pipelineResult.source.byte_sha256,
+      audit_request_sha256: auditResult.audit_request_sha256,
+      norms_output_sha256: auditResult.norms_output_sha256,
+    },
+  };
   return {
-    pipeline_result: pipelineResult,
-    normative_assessment: normativeAssessment,
+    pipeline_result: boundBundle,
+    normative_assessment: auditResult.normative_assessment,
+    blocking: auditResult.blocking,
+    limitations: auditResult.limitations,
     byte_sha256: pipelineResult.source.byte_sha256,
-    derived_hashes: { document_bundle_sha256: normativeAssessment.document_bundle_sha256 ?? null },
+    derived_hashes: {
+      document_bundle_sha256: sha256Canonical(boundBundle),
+      audit_request_sha256: auditResult.audit_request_sha256,
+      norms_output_sha256: auditResult.norms_output_sha256,
+    },
   };
 }
 export async function deletePdfUpload(args, client) {
@@ -131,8 +153,19 @@ export async function auditPdfAttachment(args, client, auditPipeline, fileDownlo
   } finally {
     try {
       const deleted = await client.delete({ uploadId: session.upload_id, capability: session.delete_capability });
-      if (deleted?.verified_absent !== true) throw new Error('PDF_DELETE_NOT_VERIFIED');
-      if (result) result.lifecycle.delete = 'PASS';
+      if (result) {
+        result.lifecycle.delete = deleted?.deleted === true ? 'PASS' : 'FAIL';
+        result.lifecycle.verified_absent = deleted?.verified_absent ?? null;
+        result.cleanup_evidence = deleted?.cleanup_evidence ?? null;
+        if (result.pipeline_result && deleted?.cleanup_evidence) {
+          result.pipeline_result = { ...result.pipeline_result, cleanup: deleted.cleanup_evidence };
+          result.derived_hashes.document_bundle_sha256 = sha256Canonical(result.pipeline_result);
+        }
+        if (deleted?.verified_absent !== true) {
+          result.blocking = [...new Set([...(result.blocking ?? []), ...(deleted?.cleanup_evidence?.blockers ?? ['PDF_DELETE_ABSENCE_UNVERIFIED'])])];
+        }
+      }
+      if (deleted?.deleted !== true) throw new Error('PDF_DELETE_NOT_VERIFIED');
     } catch {
       throw Object.assign(new Error('PDF_DELETE_NOT_VERIFIED'), { code: 'PDF_DELETE_NOT_VERIFIED', cause: operationError });
     }

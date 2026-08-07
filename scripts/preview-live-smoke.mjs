@@ -111,7 +111,7 @@ try {
     } });
   });
   assert.equal(audited.byte_sha256, uploaded.byte_sha256);
-  assert.equal(audited.pipeline_result.bundle_version, '0.2.0');
+  assert.equal(audited.pipeline_result.bundle_version, '0.2.1');
   assert.equal(audited.pipeline_result.source.byte_sha256, uploaded.byte_sha256);
   assert(audited.pipeline_result.pages.length > 0);
   assert(!JSON.stringify(audited).includes('PDF_NORMATIVE_PIPELINE_NOT_BOUND'));

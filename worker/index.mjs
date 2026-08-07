@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/server';
 import { createMcpHandler } from 'agents/mcp/server';
 import { Container, ContainerProxy } from '@cloudflare/containers';
 
 import { SERVER_INSTRUCTIONS, registerNormsTool } from '../server/norms-tool.mjs';
+import { auditVerifiedDocumentBundle } from '../server/pdf-audit-pipeline.mjs';
 import { resolverClientFromEnv } from '../server/resolver-client.mjs';
 import { publicPageResponse } from './public-pages.mjs';
 import { PdfUploadDurableObject } from './pdf-upload-cloudflare.mjs';
@@ -50,18 +50,6 @@ const protocolError = (status, code, message) => Response.json(
   { status },
 );
 
-const canonicalJson = (value) => value === null || typeof value !== 'object'
-  ? JSON.stringify(value)
-  : Array.isArray(value)
-    ? `[${value.map(canonicalJson).join(',')}]`
-    : `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
-
-const acknowledgeVerifiedDocumentBundle = async ({ document_bundle: documentBundle }) => ({
-  document_bundle_sha256: createHash('sha256').update(canonicalJson(documentBundle)).digest('hex'),
-  blocking: ['PDF_NORMATIVE_ASSESSMENT_NOT_REQUESTED'],
-  limitations: ['NORMS_CORE_NOT_CALLED'],
-});
-
 const createWorkerMcpServer = (env) => registerNormsTool(new McpServer(
   { name: 'norms-structured-applicability', version: '0.2.2' },
   { instructions: SERVER_INSTRUCTIONS },
@@ -70,7 +58,7 @@ const createWorkerMcpServer = (env) => registerNormsTool(new McpServer(
   ...(env.ENVIRONMENT === 'preview' ? {
     uploadClient: pdfUploadClientFromEnv(env),
     fileDownloader: createChatGptFileDownloader(),
-    auditPipeline: acknowledgeVerifiedDocumentBundle,
+    auditPipeline: auditVerifiedDocumentBundle,
   } : {}),
   enableAttachmentProbe: env.ENVIRONMENT === 'preview' && env.PDF_ATTACHMENT_PROBE_ENABLED === 'true',
 });

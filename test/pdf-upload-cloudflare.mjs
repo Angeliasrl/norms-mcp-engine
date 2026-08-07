@@ -76,4 +76,30 @@ await rejectCode('R2_LENGTH_DIVERGED', adapter.put({
   uploadId: wrongLength.upload_id, capability: wrongLength.upload_url.split('=').at(-1), body: new Uint8Array(9), declaredLength: 10,
 }));
 
+const cleanupCase = async ({ deleteFails = false, head }) => {
+  currentStub = { delete: async () => ({ object_key: 'opaque-server-key' }) };
+  const cleanupBucket = {
+    async delete() { if (deleteFails) throw new Error('storage detail must not escape'); },
+    async head() { return head(); },
+  };
+  return createPrivateR2UploadAdapter({
+    bucket: cleanupBucket, namespace, now: () => Date.parse('2026-08-07T12:00:00.000Z'),
+  }).delete({ uploadId: '5'.repeat(64), capability: 'x' });
+};
+const absent = await cleanupCase({ head: () => null });
+assert.equal(absent.deleted, true); assert.equal(absent.verified_absent, true);
+assert.equal(absent.cleanup_evidence.storage_source.outcome, 'ABSENT');
+assert.equal(absent.cleanup_evidence.checked_at, '2026-08-07T12:00:00.000Z');
+const present = await cleanupCase({ head: () => ({ size: 1 }) });
+assert.equal(present.deleted, true); assert.equal(present.verified_absent, false);
+assert.deepEqual(present.cleanup_evidence.blockers, ['PDF_DELETE_OBJECT_STILL_PRESENT']);
+const unavailable = await cleanupCase({ head: () => { throw new Error('unavailable'); } });
+assert.equal(unavailable.deleted, true); assert.equal(unavailable.verified_absent, null);
+assert.deepEqual(unavailable.cleanup_evidence.storage_source, { liveness: 'UNAVAILABLE', outcome: 'UNKNOWN' });
+const failedPresent = await cleanupCase({ deleteFails: true, head: () => ({ size: 1 }) });
+assert.equal(failedPresent.deleted, false); assert.equal(failedPresent.verified_absent, false);
+const failedAbsent = await cleanupCase({ deleteFails: true, head: () => null });
+assert.equal(failedAbsent.deleted, false); assert.equal(failedAbsent.verified_absent, null);
+assert(!JSON.stringify([absent, present, unavailable, failedPresent, failedAbsent]).includes('opaque-server-key'));
+
 console.log('pdf-upload-cloudflare: PASS');

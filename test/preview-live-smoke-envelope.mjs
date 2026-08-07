@@ -1,11 +1,21 @@
 import assert from 'node:assert/strict';
-import { callToolStructured, createInnocuousPdfFixture, redactDiagnostic, withPdfDelete } from '../scripts/preview-live-smoke-support.mjs';
+import { readFile } from 'node:fs/promises';
+import { ATTESTED_PDF_FIXTURE, callToolStructured, createInnocuousPdfFixture, redactDiagnostic, verifyAttestedPdfFixture, withPdfDelete } from '../scripts/preview-live-smoke-support.mjs';
 
 const pdfFixture = new TextDecoder().decode(createInnocuousPdfFixture());
 assert(pdfFixture.startsWith('%PDF-1.4\n'));
 assert(pdfFixture.endsWith('%%EOF\n'));
 assert.match(pdfFixture, /NORMS preview fixture/);
 assert(!/(\/JavaScript|\/JS|\/OpenAction|\/AA|\/Launch|\/EmbeddedFile|\/Filespec)/.test(pdfFixture));
+
+assert.deepEqual(ATTESTED_PDF_FIXTURE, {
+  byte_length: 43_654,
+  byte_sha256: '254e301772cd54612d3e0e620434f3f94e341be4a94b7a43ea87642eaf2211e9',
+});
+await assert.rejects(async () => verifyAttestedPdfFixture(createInnocuousPdfFixture()), /ATTESTED_PDF_FIXTURE_MISMATCH/);
+const smokeSource = await readFile(new URL('../scripts/preview-live-smoke.mjs', import.meta.url), 'utf8');
+assert(!smokeSource.includes('createInnocuousPdfFixture()'));
+assert(smokeSource.includes('verifyAttestedPdfFixture(pdfBytes)'));
 
 const bundle = { bundle_version: '0.2.0', source: { byte_sha256: 'a'.repeat(64) }, pages: [] };
 assert.deepEqual(await callToolStructured({ callTool: async () => ({ structuredContent: bundle, content: [{ type: 'text', text: '{}' }] }) }, {}), bundle);

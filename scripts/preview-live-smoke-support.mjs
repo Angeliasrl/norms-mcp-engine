@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 const SECRET_FIELD = /(upload|finalize|audit|delete)_capability/gi;
 const AUTHORIZATION = /authorization\s*[:=]\s*[^,}\s]+/gi;
 const URL_FRAGMENT = /(https?:\/\/[^\s"']+)#[^\s"']*/gi;
@@ -21,6 +23,20 @@ export function createInnocuousPdfFixture() {
   source += offsets.slice(1).map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
   source += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return new TextEncoder().encode(source);
+}
+
+export const ATTESTED_PDF_FIXTURE = Object.freeze({
+  byte_length: 43_654,
+  byte_sha256: '254e301772cd54612d3e0e620434f3f94e341be4a94b7a43ea87642eaf2211e9',
+});
+
+export function verifyAttestedPdfFixture(bytes) {
+  if (!(bytes instanceof Uint8Array)) throw new TypeError('attested PDF fixture bytes required');
+  const byteSha256 = createHash('sha256').update(bytes).digest('hex');
+  if (bytes.byteLength !== ATTESTED_PDF_FIXTURE.byte_length || byteSha256 !== ATTESTED_PDF_FIXTURE.byte_sha256) {
+    throw new Error('ATTESTED_PDF_FIXTURE_MISMATCH');
+  }
+  return { byte_length: bytes.byteLength, byte_sha256: byteSha256 };
 }
 
 export function redactDiagnostic(value) {

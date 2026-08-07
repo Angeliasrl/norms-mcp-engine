@@ -5,11 +5,12 @@ import { performance } from 'node:perf_hooks';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { PUBLIC_CURRENT_OPERATIONAL_EXAMPLE } from '../server/public-input-contract.mjs';
-import { callToolStructured, createInnocuousPdfFixture, withPdfDelete } from './preview-live-smoke-support.mjs';
+import { callToolStructured, verifyAttestedPdfFixture, withPdfDelete } from './preview-live-smoke-support.mjs';
 
-const [baseUrl, outputPath] = process.argv.slice(2);
+const [baseUrl, outputPath, pdfFixturePath] = process.argv.slice(2);
 assert.ok(/^https:\/\/norms-mcp-preview-0-2-2-pipeline-0-5-3\.[a-z0-9-]+\.workers\.dev$/.test(baseUrl ?? ''), 'isolated 0.2.2 preview workers.dev URL required');
 assert.ok(outputPath, 'output path required');
+assert.ok(pdfFixturePath, 'attested PDF fixture path required');
 
 const expectedTools = [
   'assess_normative_reliance',
@@ -28,6 +29,8 @@ const fixture = JSON.parse(await readFile(new URL(
   import.meta.url,
 ), 'utf8'));
 const normalized = baseUrl.replace(/\/$/, '');
+const pdfBytes = await readFile(pdfFixturePath);
+const pdfFixtureIdentity = verifyAttestedPdfFixture(pdfBytes);
 const timed = async (operation) => {
   const started = performance.now();
   const value = await operation();
@@ -72,7 +75,6 @@ try {
   const toolNames = listed.tools.map(({ name }) => name).sort();
   assert.deepEqual(toolNames, expectedTools);
 
-  const pdfBytes = createInnocuousPdfFixture();
   const session = await callToolStructured(client, { name: 'create_pdf_upload_session', arguments: { max_bytes: 1024 * 1024 } });
   const uploadTarget = new URL(session.upload_url, normalized);
   const uploadCapability = new URLSearchParams(uploadTarget.hash.slice(1)).get('upload_capability');
@@ -157,6 +159,7 @@ try {
     pdf_lifecycle: {
       upload: 'PASS', finalize: 'PASS', audit: 'PASS', delete: 'PASS',
       query_capability_rejected: true, verified_absent: true,
+      fixture: pdfFixtureIdentity,
     },
     health: { cold_ms: coldHealth.duration_ms, warm_ms: warmHealth.duration_ms },
     demo: { ...demo, duration_ms: demoTimed.duration_ms },

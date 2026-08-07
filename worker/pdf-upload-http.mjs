@@ -4,6 +4,7 @@ import { PdfUploadBoundaryError, createPrivateR2UploadAdapter } from './pdf-uplo
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 const MAX_AUDIT_RESPONSE_BYTES = 32 * 1024 * 1024;
+const MAX_UPSTREAM_ERROR_BYTES = 4 * 1024;
 const PDF_AUDIT_CONTRACT = 'norms-pdf-audit/0.5.1';
 const PDF_DOCUMENT_BUNDLE_VERSION = '0.2.0';
 const DEFAULT_AUDIT_TIMEOUT_MS = 60_000;
@@ -78,6 +79,68 @@ async function boundedJson(result) {
   }
 }
 
+async function boundedErrorJson(result) {
+  const unavailable = (code = 'UPSTREAM_ERROR_BODY_UNAVAILABLE') => ({ code });
+  const declaredHeader = result.headers.get('content-length');
+  const declared = declaredHeader === null ? 0 : Number(declaredHeader);
+  if ((declaredHeader !== null && (!Number.isSafeInteger(declared) || declared < 0))
+      || declared > MAX_UPSTREAM_ERROR_BYTES) return unavailable('UPSTREAM_ERROR_BODY_TOO_LARGE');
+  if (!result.body) return unavailable();
+  const reader = result.body.getReader(); const chunks = []; let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_UPSTREAM_ERROR_BYTES) {
+      await reader.cancel();
+      return unavailable('UPSTREAM_ERROR_BODY_TOO_LARGE');
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total); let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  let parsed;
+  try { parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { return unavailable(); }
+  const topKeys = Object.keys(parsed ?? {}).sort();
+  const errorKeys = Object.keys(parsed?.error ?? {}).sort();
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+      || ![['error'], ['error', 'request_id']].some((keys) => keys.join('\0') === topKeys.join('\0'))
+      || ![['code'], ['code', 'message']].some((keys) => keys.join('\0') === errorKeys.join('\0'))
+      || typeof parsed.error.code !== 'string'
+      || !/^[A-Z][A-Z0-9_]{2,127}$/.test(parsed.error.code)
+      || (parsed.request_id !== undefined
+        && (typeof parsed.request_id !== 'string' || !/^[A-Za-z0-9:._-]{1,128}$/.test(parsed.request_id)))
+      || (parsed.error.message !== undefined
+        && (typeof parsed.error.message !== 'string'
+          || parsed.error.message.length > 256
+          || /[\u0000-\u001f\u007f]/.test(parsed.error.message)))) return unavailable();
+  const unsafeMessage = parsed.error.message !== undefined
+    && /(authorization|bearer|capability|https?:\/\/|#)/i.test(parsed.error.message);
+  return {
+    code: parsed.error.code,
+    ...(parsed.request_id === undefined ? {} : { requestId: parsed.request_id }),
+    ...(parsed.error.message === undefined ? {} : {
+      message: unsafeMessage ? 'UPSTREAM_MESSAGE_REDACTED' : parsed.error.message,
+    }),
+  };
+}
+
+function upstreamHttpError(status, details, requestId) {
+  const safeRequestId = details.requestId ?? requestId;
+  const fields = [
+    `status=${status}`,
+    `upstream_code=${details.code}`,
+    `request_id=${safeRequestId}`,
+  ];
+  if (details.message !== undefined) fields.push(`upstream_message=${details.message}`);
+  const error = new PdfUploadBoundaryError(
+    'PDF_NORMATIVE_PIPELINE_HTTP_ERROR',
+    `Normative pipeline rejected the PDF audit request. ${fields.join(' ')}`,
+  );
+  error.upstream = Object.freeze({ status, code: details.code, request_id: safeRequestId, message: details.message });
+  return error;
+}
+
 function containsForbiddenBoundaryField(value) {
   if (!value || typeof value !== 'object') return false;
   return Object.entries(value).some(([key, child]) => /capability|authorization/i.test(key)
@@ -141,9 +204,10 @@ export function createPdfAuditContainerClient({ binding, timeoutMs = DEFAULT_AUD
         if (error instanceof PdfUploadBoundaryError) throw error;
         throw new PdfUploadBoundaryError('PDF_NORMATIVE_PIPELINE_HTTP_ERROR', 'Normative pipeline request failed.');
       } finally { clearTimeout(timeoutId); }
-      if (!(result instanceof Response) || !result.ok) {
-        throw new PdfUploadBoundaryError('PDF_NORMATIVE_PIPELINE_HTTP_ERROR', 'Normative pipeline rejected the PDF audit request.');
+      if (!(result instanceof Response)) {
+        throw new PdfUploadBoundaryError('PDF_NORMATIVE_PIPELINE_HTTP_ERROR', 'Normative pipeline returned no HTTP response.');
       }
+      if (!result.ok) throw upstreamHttpError(result.status, await boundedErrorJson(result), requestId);
       return validateAuditEnvelope(await boundedJson(result), { requestId, byteSha256, byteLength });
     },
   };

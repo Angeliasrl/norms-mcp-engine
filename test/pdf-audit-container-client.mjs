@@ -21,6 +21,20 @@ const envelope = (overrides = {}) => ({
   ...overrides,
 });
 const code = async (expected, operation) => assert.rejects(operation, (error) => error instanceof PdfUploadBoundaryError && error.code === expected);
+const upstreamError = async (status, body, expectedCode, expectedMessage) => assert.rejects(
+  call({ fetch: async () => new Response(body, { status, headers: { 'content-type': 'application/json' } }) }),
+  (error) => {
+    assert(error instanceof PdfUploadBoundaryError);
+    assert.equal(error.code, 'PDF_NORMATIVE_PIPELINE_HTTP_ERROR');
+    assert.equal(error.upstream.status, status);
+    assert.equal(error.upstream.code, expectedCode);
+    assert.equal(error.upstream.request_id, requestId);
+    assert.equal(error.upstream.message, expectedMessage);
+    assert.match(error.message, new RegExp(`status=${status}`));
+    assert(!/secret-capability|Bearer secret|https:\/\/private\.invalid|#fragment/.test(error.message));
+    return true;
+  },
+);
 const call = (binding, timeoutMs) => createPdfAuditContainerClient({ binding, timeoutMs }).audit({
   uploadId, bytes, byteSha256, byteLength: bytes.byteLength,
 });
@@ -44,8 +58,22 @@ assert.deepEqual(new Uint8Array(await captured.arrayBuffer()), bytes);
 
 await code('PDF_NORMATIVE_PIPELINE_NOT_BOUND', call(undefined));
 await code('PDF_NORMATIVE_PIPELINE_TIMEOUT', call({ fetch: async () => new Promise(() => {}) }, 5));
-await code('PDF_NORMATIVE_PIPELINE_HTTP_ERROR', call({ fetch: async () => new Response('', { status: 404 }) }));
-await code('PDF_NORMATIVE_PIPELINE_HTTP_ERROR', call({ fetch: async () => new Response('', { status: 500 }) }));
+for (const status of [400, 404, 413, 422, 500]) {
+  await upstreamError(status, JSON.stringify({
+    error: { code: `PDF_UPSTREAM_${status}`, message: `Canonical upstream ${status}.` },
+    request_id: requestId,
+  }), `PDF_UPSTREAM_${status}`, `Canonical upstream ${status}.`);
+}
+await upstreamError(500, '<html>secret-capability</html>', 'UPSTREAM_ERROR_BODY_UNAVAILABLE', undefined);
+await upstreamError(500, 'x'.repeat(4097), 'UPSTREAM_ERROR_BODY_TOO_LARGE', undefined);
+await upstreamError(422, JSON.stringify({
+  error: {
+    code: 'PDF_REDACTION_TEST',
+    message: 'Authorization: Bearer secret; capability secret-capability; https://private.invalid/#fragment',
+  },
+  request_id: requestId,
+}), 'PDF_REDACTION_TEST', 'UPSTREAM_MESSAGE_REDACTED');
+await upstreamError(422, JSON.stringify({ error: { code: 'PDF_EXTRA_FIELD', message: 'safe', detail: 'forbidden' } }), 'UPSTREAM_ERROR_BODY_UNAVAILABLE', undefined);
 await code('PDF_NORMATIVE_PIPELINE_RESPONSE_MALFORMED', call({ fetch: async () => new Response('{') }));
 await code('PDF_NORMATIVE_PIPELINE_RESPONSE_MISMATCH', call({ fetch: async () => Response.json(envelope({ request_id: 'wrong' })) }));
 await code('PDF_NORMATIVE_PIPELINE_RESPONSE_MISMATCH', call({ fetch: async () => Response.json(envelope({ byte_sha256: '0'.repeat(64) })) }));

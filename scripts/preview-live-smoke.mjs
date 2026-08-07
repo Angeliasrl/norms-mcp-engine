@@ -70,7 +70,10 @@ try {
   const toolNames = listed.tools.map(({ name }) => name).sort();
   assert.deepEqual(toolNames, expectedTools);
 
-  const pdfBytes = new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n');
+  const pdfBytes = new Uint8Array(await readFile(new URL(
+    '../evidence/NORMS_ITALIAN_PUBLIC_PROCUREMENT_AUDIT_02_DIRECT_AWARD_THRESHOLD/raw/CCIAA_Firenze_Determinazione_41_2024.pdf',
+    import.meta.url,
+  )));
   const sessionResult = await client.callTool({ name: 'create_pdf_upload_session', arguments: { max_bytes: 1024 * 1024 } });
   const session = sessionResult.structuredContent;
   const uploadTarget = new URL(session.upload_url, normalized);
@@ -105,7 +108,10 @@ try {
     audit_request: {},
   } });
   assert.equal(audited.structuredContent.byte_sha256, uploaded.byte_sha256);
-  assert(audited.structuredContent.normative_assessment.blocking.includes('PDF_NORMATIVE_PIPELINE_NOT_BOUND'));
+  assert.equal(audited.structuredContent.pipeline_result.bundle_version, '0.2.0');
+  assert.equal(audited.structuredContent.pipeline_result.source.byte_sha256, uploaded.byte_sha256);
+  assert(audited.structuredContent.pipeline_result.pages.length > 0);
+  assert(!JSON.stringify(audited.structuredContent).includes('PDF_NORMATIVE_PIPELINE_NOT_BOUND'));
   const deleted = await client.callTool({ name: 'delete_pdf_upload', arguments: {
     upload_id: session.upload_id,
     delete_capability: session.delete_capability,

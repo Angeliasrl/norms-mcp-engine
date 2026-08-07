@@ -47,8 +47,9 @@ const namespace = {
   get: () => currentStub,
 };
 const bucket = {
-  async put(key, body) { const bytes = body instanceof Uint8Array ? body : new Uint8Array(await new Response(body).arrayBuffer()); const value = { key, version: 'rv1', etag: 're1', size: bytes.byteLength }; objects.set(key, value); return value; },
+  async put(key, body) { const bytes = body instanceof Uint8Array ? body : new Uint8Array(await new Response(body).arrayBuffer()); const value = { key, version: 'rv1', etag: 're1', size: bytes.byteLength, bytes }; objects.set(key, value); return value; },
   async head(key) { return objects.get(key) ?? null; },
+  async get(key) { const value = objects.get(key); return value ? { ...value, arrayBuffer: async () => value.bytes.slice().buffer } : null; },
   async delete(key) { objects.delete(key); },
 };
 currentStub = make(); const adapter = createPrivateR2UploadAdapter({ bucket, namespace, maxBytes: 100, ttlSeconds: 60 });
@@ -60,15 +61,15 @@ await adapter.put({ uploadId: cloud.upload_id, capability: uploadCapability, bod
 await adapter.recordInspection({ uploadId: cloud.upload_id, byteSha256: 'c'.repeat(64), r2Version: 'rv1', r2Etag: 're1' });
 await adapter.finalize({ uploadId: cloud.upload_id, capability: cloud.finalize_capability });
 objects.clear();
-await rejectCode('R2_OBJECT_MISSING', adapter.verifyForAudit({ uploadId: cloud.upload_id, capability: cloud.audit_capability }));
+await rejectCode('R2_OBJECT_MISSING', adapter.readForAudit({ uploadId: cloud.upload_id, capability: cloud.audit_capability }));
 
 currentStub = make(); const replaced = await adapter.create(); const replacedUpload = replaced.upload_url.split('=').at(-1);
 await adapter.put({ uploadId: replaced.upload_id, capability: replacedUpload, body: new Uint8Array(10), declaredLength: 10 });
 await adapter.recordInspection({ uploadId: replaced.upload_id, byteSha256: 'd'.repeat(64), r2Version: 'rv1', r2Etag: 're1' });
 await adapter.finalize({ uploadId: replaced.upload_id, capability: replaced.finalize_capability });
 const replacedRecord = await currentStub.state.storage.get('record');
-objects.set(replacedRecord.object_key, { key: replacedRecord.object_key, version: 'attacker-version', etag: 'attacker-etag', size: 10 });
-await rejectCode('R2_OBJECT_DIVERGED', adapter.verifyForAudit({ uploadId: replaced.upload_id, capability: replaced.audit_capability }));
+objects.set(replacedRecord.object_key, { key: replacedRecord.object_key, version: 'attacker-version', etag: 'attacker-etag', size: 10, bytes: new Uint8Array(10) });
+await rejectCode('R2_OBJECT_DIVERGED', adapter.readForAudit({ uploadId: replaced.upload_id, capability: replaced.audit_capability }));
 
 currentStub = make(); const wrongLength = await adapter.create();
 await rejectCode('R2_LENGTH_DIVERGED', adapter.put({

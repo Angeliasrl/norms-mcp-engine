@@ -9,7 +9,7 @@
   "containers": [{
     "name": "norms-resolver-preview-0-5-1",
     "class_name": "NormsResolverContainer",
-    "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver-preview-0-5-1@sha256:9ce6e1c5d7cdb6cf500c24f7248c1e07c12127260f0a8528c3d4bb0f133e1fd0",
+    "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver-preview-0-5-1@sha256:6cdde49679960a4bcbe272160c542c377c8a0b396c58aa97911d5f6883abd2b6",
     "max_instances": 1,
     "instance_type": "basic"
   }],

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/server';
 import { createMcpHandler } from 'agents/mcp/server';
 import { Container, ContainerProxy } from '@cloudflare/containers';
@@ -49,9 +50,15 @@ const protocolError = (status, code, message) => Response.json(
   { status },
 );
 
-const failClosedPdfAudit = async () => ({
-  document_bundle_sha256: null,
-  blocking: ['PDF_NORMATIVE_PIPELINE_NOT_BOUND'],
+const canonicalJson = (value) => value === null || typeof value !== 'object'
+  ? JSON.stringify(value)
+  : Array.isArray(value)
+    ? `[${value.map(canonicalJson).join(',')}]`
+    : `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+
+const acknowledgeVerifiedDocumentBundle = async ({ document_bundle: documentBundle }) => ({
+  document_bundle_sha256: createHash('sha256').update(canonicalJson(documentBundle)).digest('hex'),
+  blocking: ['PDF_NORMATIVE_ASSESSMENT_NOT_REQUESTED'],
   limitations: ['NORMS_CORE_NOT_CALLED'],
 });
 
@@ -62,7 +69,7 @@ const createWorkerMcpServer = (env) => registerNormsTool(new McpServer(
   resolverClient: resolverClientFromEnv(env),
   ...(env.ENVIRONMENT === 'preview' ? {
     uploadClient: pdfUploadClientFromEnv(env),
-    auditPipeline: failClosedPdfAudit,
+    auditPipeline: acknowledgeVerifiedDocumentBundle,
   } : {}),
   enableAttachmentProbe: env.ENVIRONMENT === 'preview' && env.PDF_ATTACHMENT_PROBE_ENABLED === 'true',
 });

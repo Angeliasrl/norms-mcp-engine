@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export const PDF_UPLOAD_STATES = Object.freeze([
   'CREATED', 'UPLOADING', 'UPLOADED', 'FINALIZED', 'AUDITING', 'CONSUMED', 'DELETED',
@@ -195,13 +195,30 @@ export function createPrivateR2UploadAdapter({ bucket, namespace, maxBytes = 20 
     async finalize({ uploadId, capability, expectedSha256 }) {
       return stubFor(uploadId).finalize({ capability, expectedSha256 });
     },
-    async verifyForAudit({ uploadId, capability }) {
-      const stub = stubFor(uploadId); const expected = await stub.beginAudit({ capability }); const object = await bucket.head(expected.object_key);
+    async readForAudit({ uploadId, capability }) {
+      const stub = stubFor(uploadId); const expected = await stub.beginAudit({ capability });
+      let object;
+      try { object = await bucket.get(expected.object_key); } catch {
+        await stub.fail('R2_READ_FAILED');
+        throw new PdfUploadBoundaryError('R2_READ_FAILED', 'Private object could not be read.');
+      }
       if (!object) { await stub.fail('R2_OBJECT_MISSING'); throw new PdfUploadBoundaryError('R2_OBJECT_MISSING', 'Private object is missing.'); }
       if (object.version !== expected.r2_version || object.etag !== expected.r2_etag || object.size !== expected.byte_length) {
         await stub.fail('R2_OBJECT_DIVERGED'); throw new PdfUploadBoundaryError('R2_OBJECT_DIVERGED', 'Private object metadata diverged.');
       }
-      return expected;
+      let bytes;
+      try {
+        bytes = new Uint8Array(await object.arrayBuffer());
+      } catch {
+        await stub.fail('R2_READ_FAILED');
+        throw new PdfUploadBoundaryError('R2_READ_FAILED', 'Private object could not be read.');
+      }
+      const byteSha256 = createHash('sha256').update(bytes).digest('hex');
+      if (bytes.byteLength !== expected.byte_length || byteSha256 !== expected.byte_sha256) {
+        await stub.fail('R2_OBJECT_DIVERGED');
+        throw new PdfUploadBoundaryError('R2_OBJECT_DIVERGED', 'Private object bytes diverged.');
+      }
+      return { ...expected, bytes };
     },
     async completeAudit({ uploadId }) { return stubFor(uploadId).consumeAudit(); },
     async fail({ uploadId, code }) { return stubFor(uploadId).fail(code); },

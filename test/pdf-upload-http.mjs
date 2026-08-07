@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import { PdfUploadDurableObject } from '../worker/pdf-upload-cloudflare.mjs';
@@ -35,13 +36,41 @@ const objects = new Map();
 const bucket = {
   async put(key, body) {
     const bytes = body instanceof Uint8Array ? body : new Uint8Array(await new Response(body).arrayBuffer());
-    const object = { key, version: 'version-1', etag: 'etag-1', size: bytes.byteLength };
+    const object = { key, version: 'version-1', etag: 'etag-1', size: bytes.byteLength, bytes };
     objects.set(key, object); return object;
   },
   async head(key) { return objects.get(key) ?? null; },
+  async get(key) { const object = objects.get(key); return object ? { ...object, arrayBuffer: async () => object.bytes.slice().buffer } : null; },
   async delete(key) { objects.delete(key); },
 };
-Object.assign(env, { PDF_UPLOADS: bucket, PDF_UPLOAD_COORDINATOR: namespace });
+let containerRequest;
+let containerBytes;
+Object.assign(env, {
+  PDF_UPLOADS: bucket,
+  PDF_UPLOAD_COORDINATOR: namespace,
+  NORMS_RESOLVER: {
+    getByName(name) {
+      assert.equal(name, 'norms-resolver-v1');
+      return { fetch: async (request) => {
+        containerRequest = request;
+        const bytes = new Uint8Array(await request.arrayBuffer());
+        containerBytes = bytes;
+        const byteSha256 = createHash('sha256').update(bytes).digest('hex');
+        return Response.json({
+          schema_version: request.headers.get('x-norms-pdf-audit-contract'),
+          request_id: request.headers.get('x-norms-request-id'),
+          byte_sha256: byteSha256,
+          document_bundle: {
+            bundle_version: '0.2.0',
+            source: { mime_type: 'application/pdf', byte_length: bytes.byteLength, byte_sha256: byteSha256, page_count: 1 },
+            pages: [{ page: 1, blocks: [{ block_id: 'p1:b1', text: 'Fixture' }] }],
+            unreadable_pages: [], warnings: [],
+          },
+        });
+      } };
+    },
+  },
+});
 
 assert.throws(() => pdfUploadClientFromEnv({}), /Private upload bindings/);
 assert.throws(() => pdfUploadClientFromEnv({ PDF_UPLOADS: bucket, PDF_UPLOAD_COORDINATOR: namespace }), /server-side capability key/);
@@ -79,7 +108,19 @@ result = await handlePdfUploadRequest(new Request(`${uploadUrl}/audit`, {
   method: 'POST', headers: { authorization: `Capability ${session.audit_capability}` },
 }), env);
 assert.equal(result.status, 200);
-assert.equal((await result.json()).state, 'CONSUMED');
+const audited = await result.json();
+assert.equal(audited.state, 'CONSUMED');
+assert.equal(audited.document_bundle.bundle_version, '0.2.0');
+assert.equal(containerRequest.method, 'POST');
+assert.equal(new URL(containerRequest.url).pathname, '/pdf-audit');
+assert.equal(new URL(containerRequest.url).search, '');
+assert.deepEqual([...containerRequest.headers.keys()].sort(), [
+  'content-type', 'x-content-sha256', 'x-norms-pdf-audit-contract', 'x-norms-request-id',
+]);
+assert.equal(containerRequest.headers.get('authorization'), null);
+assert.equal(containerRequest.headers.get('x-norms-pdf-audit-contract'), 'norms-pdf-audit/0.5.1');
+assert.equal(containerRequest.headers.get('x-content-sha256'), uploaded.byte_sha256);
+assert.equal(createHash('sha256').update(containerBytes).digest('hex'), uploaded.byte_sha256);
 
 result = await handlePdfUploadRequest(new Request(uploadUrl, {
   method: 'DELETE', headers: { authorization: `Capability ${session.delete_capability}` },
@@ -90,5 +131,24 @@ assert.equal(objects.size, 0);
 const record = await stubs.get(session.upload_id).state.storage.get('record');
 assert.equal(record.state, 'DELETED');
 assert(!JSON.stringify(record).includes(uploadCapability));
+
+const failedSession = await client.create({});
+const failedTarget = new URL(failedSession.upload_url, 'https://preview.invalid');
+const failedUploadCapability = new URLSearchParams(failedTarget.hash.slice(1)).get('upload_capability');
+failedTarget.hash = '';
+result = await handlePdfUploadRequest(new Request(failedTarget, {
+  method: 'PUT', headers: { authorization: `Capability ${failedUploadCapability}`, 'content-type': 'application/pdf', 'content-length': String(pdf.byteLength) }, body: pdf,
+}), env);
+assert.equal(result.status, 200);
+const failedUpload = await result.json();
+result = await handlePdfUploadRequest(new Request(`${failedTarget}/finalize`, {
+  method: 'POST', headers: { authorization: `Capability ${failedSession.finalize_capability}`, 'content-type': 'application/json' }, body: JSON.stringify({ expected_sha256: failedUpload.byte_sha256 }),
+}), env);
+assert.equal(result.status, 200);
+env.NORMS_RESOLVER = { fetch: async () => new Response('', { status: 500 }) };
+await assert.rejects(client.audit({ uploadId: failedSession.upload_id, capability: failedSession.audit_capability }), (error) => error.code === 'PDF_NORMATIVE_PIPELINE_HTTP_ERROR');
+const failedRecord = await stubs.get(failedSession.upload_id).state.storage.get('record');
+assert.equal(failedRecord.state, 'FAILED');
+assert.notEqual(failedRecord.state, 'CONSUMED');
 
 console.log('pdf-upload-http: PASS');

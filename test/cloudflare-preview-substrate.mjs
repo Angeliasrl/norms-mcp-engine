@@ -24,15 +24,14 @@ assert.deepEqual(config.containers[0], {
 assert.match(config.containers[0].image, /^registry\.cloudflare\.com\/.+@sha256:[0-9a-f]{64}$/);
 assert(!config.containers[0].image.includes(':latest'));
 assert.equal(lock.manifest_digest, config.containers[0].image.split('@').at(-1));
-assert.equal(lock.pipeline_commit, '28dcef02a212eb303e4bab9fd8257c99376cda7d');
-assert.equal(lock.config_digest, 'sha256:4fcb5a3dde0946b210d3083839621f74e29dd7a7b4d59c9fc541935e41a9bc09');
+assert.equal(lock.pipeline_commit, 'eb0d10ea672a1318dd6938882b67e1d1e4f0f159');
+assert.equal(lock.publication_commit, '000e5f9eac4449f59f2ad1c7f654a97849186bdc');
+assert.equal(lock.config_digest, 'sha256:c9d589ebd2bd90333302ac4016213c21d61cf25f42014c324efb65d08a0d15ad');
 assert.equal(lock.platform, 'linux/amd64');
-assert.equal(lock.size_bytes, 194393664);
-assert.equal(lock.publication.github_artifact_id, 8988347613);
-assert.equal(lock.publication.github_run_id, 31162069593);
-assert.equal(lock.publication.github_run_attempt, 4);
-assert.equal(lock.publication.attestation_sha256, '29f26be25f17ba54bc8f6958c557a20deb5d6abf3037dfd31dfc447c77a7c8d2');
-assert.equal(lock.publication.sbom_sha256, '532b47936b3560da763cd63e69982dc4ee60d65f1547c4bd9d4f1af86d50609d');
+assert.equal(lock.size_bytes, 194410226);
+assert.equal(lock.publication.github_run_id, 31167525217);
+assert.equal(lock.publication.attestation_sha256, '6684df19618569c1d690e056ebed0fb5e0816a1a5b10ccc0dcfc11038de75454');
+assert.equal(lock.publication.sbom_sha256, 'c5bfb388e866f24250a5aa2823cede03d9b92a0288ed6bef62d88ca91ef2fda4');
 
 const bindings = new Map(config.durable_objects.bindings.map((item) => [item.name, item.class_name]));
 assert.equal(bindings.get('NORMS_RESOLVER'), 'NormsResolverContainer');

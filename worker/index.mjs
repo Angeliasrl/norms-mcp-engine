@@ -5,12 +5,14 @@ import { Container, ContainerProxy } from '@cloudflare/containers';
 import { SERVER_INSTRUCTIONS, registerNormsTool } from '../server/norms-tool.mjs';
 import { resolverClientFromEnv } from '../server/resolver-client.mjs';
 import { publicPageResponse } from './public-pages.mjs';
+import { PdfUploadDurableObject } from './pdf-upload-cloudflare.mjs';
+import { handlePdfUploadRequest, pdfUploadClientFromEnv } from './pdf-upload-http.mjs';
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 const DEFAULT_REQUEST_TIMEOUT_MS = 5_000;
 const MAX_REQUEST_TIMEOUT_MS = 60_000;
 
-export { ContainerProxy };
+export { ContainerProxy, PdfUploadDurableObject };
 
 export class NormsResolverContainer extends Container {
   defaultPort = 8080;
@@ -47,11 +49,21 @@ const protocolError = (status, code, message) => Response.json(
   { status },
 );
 
+const failClosedPdfAudit = async () => ({
+  document_bundle_sha256: null,
+  blocking: ['PDF_NORMATIVE_PIPELINE_NOT_BOUND'],
+  limitations: ['NORMS_CORE_NOT_CALLED'],
+});
+
 const createWorkerMcpServer = (env) => registerNormsTool(new McpServer(
   { name: 'norms-structured-applicability', version: '0.2.1' },
   { instructions: SERVER_INSTRUCTIONS },
 ), {
   resolverClient: resolverClientFromEnv(env),
+  ...(env.ENVIRONMENT === 'preview' ? {
+    uploadClient: pdfUploadClientFromEnv(env),
+    auditPipeline: failClosedPdfAudit,
+  } : {}),
   enableAttachmentProbe: env.ENVIRONMENT === 'preview' && env.PDF_ATTACHMENT_PROBE_ENABLED === 'true',
 });
 
@@ -106,6 +118,8 @@ async function boundedRequest(request) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const pdfResponse = await handlePdfUploadRequest(request, env);
+    if (pdfResponse !== null) return pdfResponse;
     const publicResponse = publicPageResponse(url.pathname, request.method, env);
     if (publicResponse !== null) return publicResponse;
     if (url.pathname === '/healthz') {

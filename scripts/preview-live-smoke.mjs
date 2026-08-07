@@ -13,6 +13,11 @@ assert.ok(outputPath, 'output path required');
 const expectedTools = [
   'assess_normative_reliance',
   'audit_normative_reliance',
+  'audit_uploaded_pdf',
+  'create_pdf_upload_session',
+  'delete_pdf_upload',
+  'diagnose_native_file_envelope',
+  'finalize_pdf_upload',
   'resolve_normative_evidence',
   'run_positive_current_operational_demo',
 ].sort();
@@ -65,6 +70,48 @@ try {
   const toolNames = listed.tools.map(({ name }) => name).sort();
   assert.deepEqual(toolNames, expectedTools);
 
+  const pdfBytes = new TextEncoder().encode('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF\n');
+  const sessionResult = await client.callTool({ name: 'create_pdf_upload_session', arguments: { max_bytes: 1024 * 1024 } });
+  const session = sessionResult.structuredContent;
+  const uploadTarget = new URL(session.upload_url, normalized);
+  const uploadCapability = new URLSearchParams(uploadTarget.hash.slice(1)).get('upload_capability');
+  assert(uploadCapability, 'upload capability must be carried in the fragment');
+  assert.equal(uploadTarget.search, '');
+  uploadTarget.hash = '';
+  const queryRejected = await fetch(`${uploadTarget}?capability=${encodeURIComponent(uploadCapability)}`, {
+    method: 'PUT',
+    headers: { authorization: `Capability ${uploadCapability}`, 'content-type': 'application/pdf', 'content-length': String(pdfBytes.byteLength) },
+    body: pdfBytes,
+  });
+  assert.equal(queryRejected.status, 400);
+  assert.equal((await queryRejected.json()).error.code, 'CAPABILITY_QUERY_REJECTED');
+  const uploadResponse = await fetch(uploadTarget, {
+    method: 'PUT',
+    headers: { authorization: `Capability ${uploadCapability}`, 'content-type': 'application/pdf', 'content-length': String(pdfBytes.byteLength) },
+    body: pdfBytes,
+  });
+  assert.equal(uploadResponse.status, 200);
+  const uploaded = await uploadResponse.json();
+  assert.match(uploaded.byte_sha256, /^[0-9a-f]{64}$/);
+  const finalized = await client.callTool({ name: 'finalize_pdf_upload', arguments: {
+    upload_id: session.upload_id,
+    finalize_capability: session.finalize_capability,
+    expected_sha256: uploaded.byte_sha256,
+  } });
+  assert.equal(finalized.structuredContent.state, 'FINALIZED');
+  const audited = await client.callTool({ name: 'audit_uploaded_pdf', arguments: {
+    upload_id: session.upload_id,
+    audit_capability: session.audit_capability,
+    audit_request: {},
+  } });
+  assert.equal(audited.structuredContent.byte_sha256, uploaded.byte_sha256);
+  assert(audited.structuredContent.normative_assessment.blocking.includes('PDF_NORMATIVE_PIPELINE_NOT_BOUND'));
+  const deleted = await client.callTool({ name: 'delete_pdf_upload', arguments: {
+    upload_id: session.upload_id,
+    delete_capability: session.delete_capability,
+  } });
+  assert.equal(deleted.structuredContent.verified_absent, true);
+
   const demoTimed = await timed(() => client.callTool({ name: 'run_positive_current_operational_demo', arguments: {} }));
   const demo = demoTimed.value.structuredContent;
   assert.deepEqual(demo, { authorizes_current_operational: true, admissible: true, blocking: [], unknown: [], unexamined: false });
@@ -105,6 +152,10 @@ try {
     preview_url: normalized,
     server_version: client.getServerVersion(),
     tools: toolNames,
+    pdf_lifecycle: {
+      upload: 'PASS', finalize: 'PASS', audit: 'PASS', delete: 'PASS',
+      query_capability_rejected: true, verified_absent: true,
+    },
     health: { cold_ms: coldHealth.duration_ms, warm_ms: warmHealth.duration_ms },
     demo: { ...demo, duration_ms: demoTimed.duration_ms },
     caller_trust_exploit: {

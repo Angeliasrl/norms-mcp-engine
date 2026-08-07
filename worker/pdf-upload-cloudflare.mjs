@@ -186,7 +186,8 @@ export function createPrivateR2UploadAdapter({ bucket, namespace, maxBytes = 20 
         await bucket.delete(begun.object_key); await stub.fail('R2_LENGTH_DIVERGED');
         throw new PdfUploadBoundaryError('R2_LENGTH_DIVERGED', 'Stored object length differs from the declared length.');
       }
-      return stub.completeUpload({ r2Version: object.version, r2Etag: object.etag, byteLength: object.size });
+      const completed = await stub.completeUpload({ r2Version: object.version, r2Etag: object.etag, byteLength: object.size });
+      return { ...completed, r2_version: object.version, r2_etag: object.etag };
     },
     async recordInspection({ uploadId, byteSha256, r2Version, r2Etag }) {
       return stubFor(uploadId).recordInspection({ byteSha256, r2Version, r2Etag });

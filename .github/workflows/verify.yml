@@ -23,6 +23,9 @@ jobs:
         run: npm ci
       - name: suite
         run: npm test
+      - name: Durable Object RPC gate
+        if: ${{ matrix.node != '20' }}
+        run: npm run test:do-rpc
       - name: Worker suite
         if: ${{ matrix.node != '20' }}
         run: npm run test:worker

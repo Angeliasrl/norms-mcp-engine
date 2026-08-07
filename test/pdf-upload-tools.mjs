@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { auditUploadedPdf, classifyAttachmentEnvelope, createPdfUploadSession, deletePdfUpload, finalizePdfUpload, registerAttachmentDiagnosticTool } from '../server/pdf-upload-tools.mjs';
+import { auditUploadedPdf, classifyAttachmentEnvelope, createPdfUploadSession, deletePdfUpload, finalizePdfUpload, registerAttachmentDiagnosticTool, registerPdfUploadTools } from '../server/pdf-upload-tools.mjs';
 
 const caps = { finalize: 'f'.repeat(43), audit: 'a'.repeat(43), delete: 'd'.repeat(43) };
 const calls = [];
@@ -25,6 +25,26 @@ assert.deepEqual(calls[1][1], { uploadId: 'a'.repeat(24), capability: caps.final
 assert.deepEqual(calls[2][1], { uploadId: 'a'.repeat(24), capability: caps.audit });
 assert.deepEqual(calls[3][1], { uploadId: 'a'.repeat(24), capability: caps.delete });
 assert(!JSON.stringify(calls).includes('%PDF'));
+
+const toolRegistrations = new Map();
+registerPdfUploadTools({ registerTool: (name, schema, handler) => toolRegistrations.set(name, { schema, handler }) }, {
+  uploadClient: {
+    ...client,
+    audit: async () => {
+      const error = new Error('must not cross the MCP boundary');
+      error.code = 'PDF_NORMATIVE_PIPELINE_HTTP_ERROR';
+      error.upstream = Object.freeze({ status: 422, code: 'PDF_MAGIC_INVALID', request_id: 'pdf-audit:request-safe', message: 'PDF magic is invalid.' });
+      throw error;
+    },
+  },
+  auditPipeline: async () => assert.fail('audit pipeline must not run'),
+});
+const surfaced = await toolRegistrations.get('audit_uploaded_pdf').handler({
+  upload_id: 'a'.repeat(24), audit_capability: caps.audit, audit_request: {},
+});
+assert.equal(surfaced.isError, true);
+assert.equal(surfaced.content[0].text, 'PDF_NORMATIVE_PIPELINE_HTTP_ERROR status=422 upstream_code=PDF_MAGIC_INVALID request_id=pdf-audit:request-safe upstream_message=PDF magic is invalid.');
+assert(!surfaced.content[0].text.includes('must not cross'));
 
 assert.equal(classifyAttachmentEnvelope({ bytes: new Uint8Array() }).classification, 'NATIVE_FILE_HANDOFF_PASS');
 assert.equal(classifyAttachmentEnvelope({ file_id: 'file-1', media_type: 'application/pdf', declared_size: 10 }).classification, 'NATIVE_FILE_REFERENCE_PASS');

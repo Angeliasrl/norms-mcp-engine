@@ -5,6 +5,30 @@ const capability = z.string().min(43).max(256).regex(/^[A-Za-z0-9_-]+$/);
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/);
 const toolResult = (structuredContent) => ({ structuredContent, content: [{ type: 'text', text: JSON.stringify(structuredContent) }] });
 
+function safeAuditToolError(error) {
+  const upstream = error?.upstream;
+  if (error?.code !== 'PDF_NORMATIVE_PIPELINE_HTTP_ERROR'
+      || !upstream
+      || !Number.isInteger(upstream.status)
+      || upstream.status < 400
+      || upstream.status > 599
+      || typeof upstream.code !== 'string'
+      || !/^[A-Z][A-Z0-9_]{2,127}$/.test(upstream.code)
+      || typeof upstream.request_id !== 'string'
+      || !/^[A-Za-z0-9:._-]{1,128}$/.test(upstream.request_id)
+      || (upstream.message !== undefined
+        && (typeof upstream.message !== 'string'
+          || upstream.message.length > 256
+          || /[\u0000-\u001f\u007f]/.test(upstream.message)))) return null;
+  const fields = [
+    `status=${upstream.status}`,
+    `upstream_code=${upstream.code}`,
+    `request_id=${upstream.request_id}`,
+  ];
+  if (upstream.message !== undefined) fields.push(`upstream_message=${upstream.message}`);
+  return { isError: true, content: [{ type: 'text', text: `PDF_NORMATIVE_PIPELINE_HTTP_ERROR ${fields.join(' ')}` }] };
+}
+
 export async function createPdfUploadSession(args, client) {
   return client.create({ requestedMaxBytes: args.max_bytes });
 }
@@ -89,7 +113,15 @@ export function registerPdfUploadTools(server, { uploadClient, auditPipeline, en
     title: 'Audit uploaded PDF', description: 'Consume the scoped audit capability and call NORMS only after byte provenance is verified.',
     inputSchema: z.object({ upload_id: uploadId, audit_capability: capability, audit_request: z.record(z.string(), z.unknown()) }).strict(),
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
-  }, async (args) => toolResult(await auditUploadedPdf(args, uploadClient, auditPipeline)));
+  }, async (args) => {
+    try {
+      return toolResult(await auditUploadedPdf(args, uploadClient, auditPipeline));
+    } catch (error) {
+      const safeError = safeAuditToolError(error);
+      if (safeError !== null) return safeError;
+      throw error;
+    }
+  });
   server.registerTool('delete_pdf_upload', {
     title: 'Delete PDF upload', description: 'Use the scoped delete capability to delete bytes and revoke remaining capabilities.',
     inputSchema: z.object({ upload_id: uploadId, delete_capability: capability }).strict(),

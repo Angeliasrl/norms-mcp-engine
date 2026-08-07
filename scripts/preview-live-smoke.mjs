@@ -5,7 +5,7 @@ import { performance } from 'node:perf_hooks';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { PUBLIC_CURRENT_OPERATIONAL_EXAMPLE } from '../server/public-input-contract.mjs';
-import { callToolStructured, withPdfDelete } from './preview-live-smoke-support.mjs';
+import { callToolStructured, createInnocuousPdfFixture, withPdfDelete } from './preview-live-smoke-support.mjs';
 
 const [baseUrl, outputPath] = process.argv.slice(2);
 assert.ok(/^https:\/\/norms-mcp-preview-0-2-1-pipeline-0-5-1\.[a-z0-9-]+\.workers\.dev$/.test(baseUrl ?? ''), 'isolated preview workers.dev URL required');
@@ -71,10 +71,7 @@ try {
   const toolNames = listed.tools.map(({ name }) => name).sort();
   assert.deepEqual(toolNames, expectedTools);
 
-  const pdfBytes = new Uint8Array(await readFile(new URL(
-    '../evidence/NORMS_ITALIAN_PUBLIC_PROCUREMENT_AUDIT_02_DIRECT_AWARD_THRESHOLD/raw/CCIAA_Firenze_Determinazione_41_2024.pdf',
-    import.meta.url,
-  )));
+  const pdfBytes = createInnocuousPdfFixture();
   const session = await callToolStructured(client, { name: 'create_pdf_upload_session', arguments: { max_bytes: 1024 * 1024 } });
   const uploadTarget = new URL(session.upload_url, normalized);
   const uploadCapability = new URLSearchParams(uploadTarget.hash.slice(1)).get('upload_capability');

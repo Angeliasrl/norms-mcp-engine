@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { callToolStructured, redactDiagnostic, withPdfDelete } from '../scripts/preview-live-smoke-support.mjs';
+import { callToolStructured, createInnocuousPdfFixture, redactDiagnostic, withPdfDelete } from '../scripts/preview-live-smoke-support.mjs';
+
+const pdfFixture = new TextDecoder().decode(createInnocuousPdfFixture());
+assert(pdfFixture.startsWith('%PDF-1.4\n'));
+assert(pdfFixture.endsWith('%%EOF\n'));
+assert.match(pdfFixture, /NORMS preview fixture/);
+assert(!/(\/JavaScript|\/JS|\/OpenAction|\/AA|\/Launch|\/EmbeddedFile|\/Filespec)/.test(pdfFixture));
 
 const bundle = { bundle_version: '0.2.0', source: { byte_sha256: 'a'.repeat(64) }, pages: [] };
 assert.deepEqual(await callToolStructured({ callTool: async () => ({ structuredContent: bundle, content: [{ type: 'text', text: '{}' }] }) }, {}), bundle);

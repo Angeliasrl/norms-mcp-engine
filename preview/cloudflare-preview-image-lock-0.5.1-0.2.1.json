@@ -1,0 +1,19 @@
+{
+  "schema_version": "norms-cloudflare-preview-image-lock/0.1",
+  "pipeline_repository": "Angeliasrl/norms-document-pipeline",
+  "pipeline_commit": "28dcef02a212eb303e4bab9fd8257c99376cda7d",
+  "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver-preview-0-5-1@sha256:9ce6e1c5d7cdb6cf500c24f7248c1e07c12127260f0a8528c3d4bb0f133e1fd0",
+  "manifest_digest": "sha256:9ce6e1c5d7cdb6cf500c24f7248c1e07c12127260f0a8528c3d4bb0f133e1fd0",
+  "config_digest": "sha256:4fcb5a3dde0946b210d3083839621f74e29dd7a7b4d59c9fc541935e41a9bc09",
+  "platform": "linux/amd64",
+  "size_bytes": 194393664,
+  "publication": {
+    "github_run_id": 31162069593,
+    "github_run_attempt": 4,
+    "github_artifact_id": 8988347613,
+    "attestation_file": "image-publication-attestation.json",
+    "attestation_sha256": "29f26be25f17ba54bc8f6958c557a20deb5d6abf3037dfd31dfc447c77a7c8d2",
+    "sbom_file": "sbom.spdx.json",
+    "sbom_sha256": "532b47936b3560da763cd63e69982dc4ee60d65f1547c4bd9d4f1af86d50609d"
+  }
+}

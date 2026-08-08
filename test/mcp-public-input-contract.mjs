@@ -32,7 +32,7 @@ await withMcpClient(async ({ client }) => {
   const schema = tool.inputSchema;
 
   await test('assessment tool retains its strict typed schema with reusable definitions', async () => {
-    assert.equal(listed.tools.length, 2);
+    assert.equal(listed.tools.length, 4);
     assert.equal(tool.name, 'assess_normative_reliance');
     assert.equal(schema.additionalProperties, false);
     assert.equal(schema.oneOf.length, 3);

@@ -1,6 +1,6 @@
 {
   "name": "norms-mcp-engine",
-  "version": "0.1.1",
+  "version": "0.2.2",
   "type": "module",
   "description": "Deterministic normative-reliance engine with a minimal read-only MCP Streamable HTTP adapter.",
   "keywords": [
@@ -18,11 +18,12 @@
   "scripts": {
     "start:mcp": "node server/index.mjs",
     "dev:worker": "wrangler dev --local",
-    "test": "node test/suite.mjs && node test/condition-evidence.mjs && node test/procurement-deterministic-applicability-negative-matrix.mjs && node test/procurement-deterministic-applicability-positive-synthetic.mjs && node test/italian-public-procurement-audit-02-direct-award-threshold.mjs && node test/trusted-external-evaluation-boundary.mjs && node test/mcp-server-transport.mjs && node test/positive-current-operational-demo.mjs && node test/mcp-public-input-contract.mjs && node test/mcp-submission-cases.mjs && node scripts/build-claimmap.mjs --check",
+    "test": "node test/suite.mjs && node test/condition-evidence.mjs && node test/procurement-deterministic-applicability-negative-matrix.mjs && node test/procurement-deterministic-applicability-positive-synthetic.mjs && node test/italian-public-procurement-audit-02-direct-award-threshold.mjs && node test/trusted-external-evaluation-boundary.mjs && node test/mcp-server-transport.mjs && node test/positive-current-operational-demo.mjs && node test/mcp-public-input-contract.mjs && node test/mcp-submission-cases.mjs && node test/end-to-end-tools.mjs && node test/pdf-upload-tools.mjs && node --import ./test/cloudflare-workers-node-shim.mjs test/pdf-upload-cloudflare.mjs && node --import ./test/cloudflare-workers-node-shim.mjs test/pdf-audit-container-client.mjs && node --import ./test/cloudflare-workers-node-shim.mjs test/pdf-upload-http.mjs && node test/preview-live-smoke-envelope.mjs && node test/cloudflare-preview-substrate.mjs && node test/pdf-upload-ui.mjs && node test/resolver-client.mjs && node scripts/build-claimmap.mjs --check",
     "test:audit-02": "node test/italian-public-procurement-audit-02-direct-award-threshold.mjs",
     "test:mcp": "node test/mcp-server-transport.mjs && node test/mcp-submission-cases.mjs",
     "test:input-contract": "node test/mcp-public-input-contract.mjs",
     "test:worker": "node test/cloudflare-worker-local.mjs",
+    "test:do-rpc": "node test/pdf-upload-durable-object-rpc.mjs",
     "test:public-pages": "npm run test:worker",
     "build:claimmap": "node scripts/build-claimmap.mjs"
   },
@@ -45,6 +46,7 @@
   ],
   "author": "Francesco Riva — Angelia srl SB",
   "dependencies": {
+    "@cloudflare/containers": "0.3.7",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "agents": "^0.20.1",

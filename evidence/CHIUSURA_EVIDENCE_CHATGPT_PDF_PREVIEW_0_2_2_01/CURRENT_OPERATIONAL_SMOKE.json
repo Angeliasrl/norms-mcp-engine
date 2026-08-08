@@ -1,0 +1,46 @@
+{
+  "schema_version": "norms-preview-live-core-pdf-report/0.1",
+  "fixture": {
+    "byte_length": 43654,
+    "byte_sha256": "254e301772cd54612d3e0e620434f3f94e341be4a94b7a43ea87642eaf2211e9"
+  },
+  "bundle_version": "0.2.1",
+  "audit_binding": {
+    "pdf_sha256": "254e301772cd54612d3e0e620434f3f94e341be4a94b7a43ea87642eaf2211e9",
+    "audit_request_sha256": "465724a31035ebed63f3d55c7d780242d9e02c6900ede9f18375a6a5b7bd1620",
+    "norms_output_sha256": "31596648fda6c5173a2cbfe00b5cfeb2afcd600a383f6658a0637a151fb1c012"
+  },
+  "normative_assessment": {
+    "authorizes_current_operational": true,
+    "admissible": true,
+    "blocking": [],
+    "unknown": [],
+    "unexamined": false
+  },
+  "core_called": true,
+  "cleanup": {
+    "deleted": true,
+    "verified_absent": true,
+    "evidence": {
+      "claim": "SPECIFIC_UPLOADED_OBJECT_ABSENT",
+      "scope": {
+        "object": "SINGLE_OPAQUE_UPLOAD_OBJECT",
+        "session": "SINGLE_UPLOAD_SESSION"
+      },
+      "checked_at": "2026-08-07T16:37:48.250Z",
+      "method": "R2_HEAD_AFTER_DELETE",
+      "storage_source": {
+        "liveness": "LIVE",
+        "outcome": "ABSENT"
+      },
+      "proof": {
+        "type": "DIRECT_STORAGE_METADATA_LOOKUP",
+        "result": "ABSENT"
+      },
+      "blockers": [],
+      "limits": [
+        "Does not prove absence from backups, logs, or external systems."
+      ]
+    }
+  }
+}

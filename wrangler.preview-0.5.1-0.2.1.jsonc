@@ -1,0 +1,36 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "norms-mcp-preview-0-2-1-pipeline-0-5-1",
+  "main": "worker/index.mjs",
+  "compatibility_date": "2026-08-07",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "containers": [{
+    "name": "norms-resolver-preview-0-5-1",
+    "class_name": "NormsResolverContainer",
+    "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver-preview-0-5-1@sha256:fdfc75f373af4371f0121c9a92af9f389fe1c6e34f58d6b338b12c2f1b8d625a",
+    "max_instances": 1,
+    "instance_type": "basic"
+  }],
+  "durable_objects": {
+    "bindings": [
+      {"name": "NORMS_RESOLVER", "class_name": "NormsResolverContainer"},
+      {"name": "PDF_UPLOAD_COORDINATOR", "class_name": "PdfUploadDurableObject"}
+    ]
+  },
+  "migrations": [{
+    "tag": "preview-0-2-1-pipeline-0-5-1-v1",
+    "new_sqlite_classes": ["NormsResolverContainer", "PdfUploadDurableObject"]
+  }],
+  "r2_buckets": [{
+    "binding": "PDF_UPLOADS",
+    "bucket_name": "norms-pdf-uploads-preview-0-2-1-pipeline-0-5-1"
+  }],
+  "vars": {
+    "ENVIRONMENT": "preview",
+    "MCP_REQUEST_TIMEOUT_MS": "60000",
+    "PDF_ATTACHMENT_PROBE_ENABLED": "true"
+  },
+  "observability": {"enabled": true, "head_sampling_rate": 0.01}
+}

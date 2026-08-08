@@ -26,9 +26,27 @@ each stateless request owns and closes its MCP transport and server instance.
 
 ## Operational boundaries
 
+### Preview PDF attachments from ChatGPT
+
+The isolated PDF preview advertises `audit_pdf_attachment` with the official
+`_meta["openai/fileParams"]` file-input contract. ChatGPT supplies a temporary
+HTTPS `download_url`; the Worker downloads the original bytes with a bounded
+request, validates PDF type, size, magic bytes and SHA-256, then performs
+create, upload, finalize, normative audit and verified delete internally.
+The `file_id` alone is never treated as byte provenance. Upload, finalize,
+audit and delete capabilities remain separate and are neither returned by this
+tool nor placed in query strings, logs or artifacts.
+The downloader follows at most three manually inspected HTTPS redirects and
+revalidates every destination against the public-host boundary. Failures expose
+only a bounded code plus safe diagnostics: error class, hostname without path
+or query, HTTP status when available, redirect count, duration and correlation
+ID. Signed URLs, response bodies and request headers are never returned or
+logged.
+
 - Stateless Streamable HTTP; no database or persistence.
 - No authentication or OAuth.
-- No outbound network calls in server code.
+- Outbound calls are limited to the preview's configured resolver Container and
+  the bounded HTTPS file URL supplied through the ChatGPT file-input contract.
 - No external telemetry.
 - No request-payload logging and no payloads in errors.
 - Request-size limit: 65,536 bytes.

@@ -21,16 +21,18 @@ console.log('\nNORMS MCP — Streamable HTTP transport\n');
 await withMcpClient(async ({ client, running }) => {
   await test('initialize returns the stable server identity and instructions', async () => {
     assert.equal(client.getServerVersion().name, 'norms-structured-applicability');
-    assert.equal(client.getServerVersion().version, '0.1.1');
+    assert.equal(client.getServerVersion().version, '0.2.2');
     assert.equal(client.getInstructions(), SERVER_INSTRUCTIONS);
   });
 
   const listed = await client.listTools();
   await test('tools/list exposes the assessment and fixed positive-demo tools', async () => {
-    assert.deepEqual(listed.tools.map(({ name }) => name).sort(), [
+    const expected = [
       POSITIVE_DEMO_TOOL_NAME,
       TOOL_NAME,
-    ].sort());
+    ];
+    expected.push('resolve_normative_evidence', 'audit_normative_reliance');
+    assert.deepEqual(listed.tools.map(({ name }) => name).sort(), expected.sort());
   });
 
   await test('tool metadata, schemas, and annotations are complete', async () => {

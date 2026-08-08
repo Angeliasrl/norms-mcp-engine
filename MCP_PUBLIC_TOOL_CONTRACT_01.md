@@ -5,7 +5,7 @@ Status: deployed read-only implementation.
 ## Server
 
 - Name: `norms-structured-applicability`
-- Version: `0.1.1`
+- Version: `0.2.0`
 - Transport: Streamable HTTP
 - Local endpoint: `POST /mcp`
 - Tools exposed: two read-only tools

@@ -23,5 +23,20 @@ jobs:
         run: npm ci
       - name: suite
         run: npm test
+      - name: Durable Object RPC gate
+        if: ${{ matrix.node != '20' }}
+        run: npm run test:do-rpc
+      - name: Worker suite
+        if: ${{ matrix.node != '20' }}
+        run: npm run test:worker
+      - name: Preview configuration and digest-pinned dry-run
+        if: ${{ matrix.node != '20' }}
+        run: |
+          node test/cloudflare-preview-0.5.3-0.2.2.mjs
+          node_modules/.bin/wrangler types --config wrangler.preview-0.5.3-0.2.2.jsonc --path "$RUNNER_TEMP/preview-worker-configuration.d.ts"
+          node_modules/.bin/wrangler deploy --dry-run --config wrangler.preview-0.5.3-0.2.2.jsonc --outdir "$RUNNER_TEMP/preview-dry-run"
+      - name: Secret scan
+        run: |
+          ! git grep -nIE '(BEGIN (RSA|EC|OPENSSH) PRIVATE KEY|sk-[A-Za-z0-9]{20,})' -- . ':!*.lock'
       - name: pack (dry run)
         run: npm pack --dry-run

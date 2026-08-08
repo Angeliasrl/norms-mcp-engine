@@ -44,7 +44,7 @@ const pages = new Map([
     <h2>Deterministic assessment of structured grounds</h2>
     <p>NORMS evaluates whether structured normative records and structured facts may be relied upon for a declared purpose. It reports blockers, unknowns and unexamined areas and fails closed when required grounds are missing or unverified.</p>
     <h2>How it works</h2>
-    <p>The single read-only tool, <code>assess_normative_reliance</code>, evaluates explicitly supplied authority, scope, temporal applicability, verification and structured conditions. Typical uses include checking a fully structured record, evaluating a declared date against an explicit interval, and identifying missing evidence.</p>
+    <p>The read-only tools evaluate structured normative reliance and, when a private resolver binding is configured, resolve official evidence and run a gated end-to-end audit. Typical uses include checking a fully structured record, resolving an official citation or URL, and identifying missing evidence.</p>
     <h2>Outputs</h2>
     <p>Results include admissibility and eligibility fields together with explicit <code>blocking</code>, <code>unknown</code> and <code>unexamined</code> values. An empty blocker list alone is never treated as authorization.</p>
     <h2>Limits</h2>

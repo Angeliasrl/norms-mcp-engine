@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.norms.local/resolver-service-contract-0.5.0.json",
+  "contract_version": "norms-resolver-service/0.5.0",
+  "request": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["jurisdiction", "source_requirements", "request_id"],
+    "properties": {
+      "citation": {"type": "string", "minLength": 1, "maxLength": 2048},
+      "official_url": {"type": "string", "format": "uri", "maxLength": 4096},
+      "jurisdiction": {"type": "string", "pattern": "^[A-Z]{2,8}$"},
+      "as_of": {"type": "string", "format": "date"},
+      "source_requirements": {"type": "object", "additionalProperties": false, "properties": {"minimum_independent_official_sources": {"type": "integer", "minimum": 1, "maximum": 4}, "require_primary_official": {"type": "boolean"}}},
+      "request_id": {"type": "string", "pattern": "^[A-Za-z0-9._:-]{1,128}$"}
+    },
+    "oneOf": [{"required": ["citation"], "not": {"required": ["official_url"]}}, {"required": ["official_url"], "not": {"required": ["citation"]}}]
+  },
+  "response_required": ["schema_version", "canonical_citation", "acquisition_receipts", "evidence_sources", "matching", "temporal_evidence", "corroboration", "contradiction_ledger", "blocking", "unknown", "unexamined", "audit_level", "ready_for_norms", "evidence_package", "package_canonical_json", "package_sha256", "resolution_fingerprint", "metrics"]
+}

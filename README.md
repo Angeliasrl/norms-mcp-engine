@@ -1,4 +1,6 @@
-# norms-mcp-engine
+# norms-mcp-engine 0.2.1
+
+Version 0.2.1 designs capability-authenticated PDF transport without treating caller labels as identity. It preserves the 0.1.1 caller-trust boundary and the 0.2.0 resolver/Core gates. Cloud R2/DO bindings remain unconfigured and undeployed in this checkpoint.
 
 Purpose-aware current reliance uses an evidence-bound condition boundary. Callers cannot authorize operation by supplying `applicability_conditions.status: SATISFIED`; that legacy shape is rejected by `assessRelianceForPurpose`. Conditions are either derived by the closed predicate DSL or accepted through a fully ratified external evaluation. Condition completeness is independently verified and current authorization fails closed for missing, unsupported, unknown, or unconfirmed bases.
 
@@ -8,7 +10,7 @@ See `CONDITION_EVIDENCE_BOUNDARY.md` and `UNTRUSTED_CONDITION_ASSERTION_FALSE_PO
 persistence. This branch also contains a minimal local, read-only MCP adapter;
 it is not a public production deployment.**
 
-Version 0.1.1 · claim-by-claim evidence: [`CLAIM_MAP.md`](./CLAIM_MAP.md) ·
+Version 0.2.1 · claim-by-claim evidence: [`CLAIM_MAP.md`](./CLAIM_MAP.md) ·
 not independently verified.
 
 ### MCP trusted-external-evaluation boundary

@@ -1,0 +1,6 @@
+body { font: 16px system-ui, sans-serif; max-width: 36rem; margin: 2rem auto; padding: 1rem; color: #17202a; }
+button, input { font: inherit; margin: .5rem 0; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+progress { display: block; width: 100%; margin: 1rem 0; }
+#status { min-height: 3rem; white-space: pre-wrap; }
+button:focus-visible, input:focus-visible { outline: 3px solid #165dba; outline-offset: 2px; }

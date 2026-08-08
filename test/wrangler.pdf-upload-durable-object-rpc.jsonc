@@ -1,0 +1,21 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "norms-pdf-upload-durable-object-rpc-test",
+  "main": "../worker/index.mjs",
+  "compatibility_date": "2026-08-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "durable_objects": {
+    "bindings": [{"name": "PDF_UPLOAD_COORDINATOR", "class_name": "PdfUploadDurableObject"}]
+  },
+  "migrations": [{
+    "tag": "pdf-upload-durable-object-rpc-test-v1",
+    "new_sqlite_classes": ["PdfUploadDurableObject"]
+  }],
+  "r2_buckets": [{"binding": "PDF_UPLOADS", "bucket_name": "norms-pdf-upload-durable-object-rpc-test"}],
+  "vars": {
+    "ENVIRONMENT": "preview",
+    "PDF_ATTACHMENT_PROBE_ENABLED": "false",
+    "PDF_UPLOAD_CAPABILITY_HMAC_KEY": "test-only-rpc-key-material-at-least-thirty-two-bytes"
+  }
+}

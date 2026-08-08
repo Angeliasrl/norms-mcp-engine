@@ -50,17 +50,24 @@ const protocolError = (status, code, message) => Response.json(
   { status },
 );
 
+const pdfUploadBindingsPresent = (env) => Boolean(
+  env.NORMS_RESOLVER
+  && env.PDF_UPLOAD_COORDINATOR
+  && env.PDF_UPLOADS
+  && typeof env.PDF_UPLOAD_CAPABILITY_HMAC_KEY === 'string',
+);
+
 const createWorkerMcpServer = (env) => registerNormsTool(new McpServer(
   { name: 'norms-structured-applicability', version: '0.2.2' },
   { instructions: SERVER_INSTRUCTIONS },
 ), {
   resolverClient: resolverClientFromEnv(env),
-  ...(env.ENVIRONMENT === 'preview' ? {
+  ...(pdfUploadBindingsPresent(env) ? {
     uploadClient: pdfUploadClientFromEnv(env),
     fileDownloader: createChatGptFileDownloader(),
     auditPipeline: auditVerifiedDocumentBundle,
   } : {}),
-  enableAttachmentProbe: env.ENVIRONMENT === 'preview' && env.PDF_ATTACHMENT_PROBE_ENABLED === 'true',
+  enableAttachmentProbe: env.PDF_ATTACHMENT_PROBE_ENABLED === 'true',
 });
 
 async function handleWithTimeout(request, env, ctx) {

@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "norms-mcp",
   "main": "worker/index.mjs",
-  "compatibility_date": "2026-08-04",
+  "compatibility_date": "2026-08-07",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "preview_urls": false,
@@ -13,7 +13,38 @@
     }
   ],
   "limits": {
-    "cpu_ms": 1000
+    "cpu_ms": 5000
+  },
+  "containers": [
+    {
+      "name": "norms-resolver-prod",
+      "class_name": "NormsResolverContainer",
+      "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver@sha256:92835dd5c86e730250f586a7dee2ddab04f961bd5dc6ad726ca5ec743a63b73c",
+      "max_instances": 1,
+      "instance_type": "basic"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "NORMS_RESOLVER", "class_name": "NormsResolverContainer" },
+      { "name": "PDF_UPLOAD_COORDINATOR", "class_name": "PdfUploadDurableObject" }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "prod-pdf-v1",
+      "new_sqlite_classes": ["NormsResolverContainer", "PdfUploadDurableObject"]
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PDF_UPLOADS",
+      "bucket_name": "norms-pdf-uploads-prod"
+    }
+  ],
+  "vars": {
+    "ENVIRONMENT": "production",
+    "MCP_REQUEST_TIMEOUT_MS": "60000"
   },
   "observability": {
     "enabled": true,

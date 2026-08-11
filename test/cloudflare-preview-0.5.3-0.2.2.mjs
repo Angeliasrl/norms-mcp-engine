@@ -18,5 +18,5 @@ assert.equal(lock.size_bytes, 236076302);
 assert.equal(config.r2_buckets[0].bucket_name, 'norms-pdf-uploads-preview-0-2-2-pipeline-0-5-3');
 assert.equal(config.vars.PDF_ATTACHMENT_PROBE_ENABLED, 'true');
 assert(!JSON.stringify(config).includes('PDF_UPLOAD_CAPABILITY_HMAC_KEY'));
-assert.equal(createHash('sha256').update(production).digest('hex'), '8dd7bb5abb332d37b950fed179be27c57a11d40d5daccd8c40a622dc72d8e858');
+assert.equal(createHash('sha256').update(production).digest('hex'), '4840e9e363007bcbdd7ab886f564223d9a0bd3b6ed7307e63de9a48b0bfac0bd');
 console.log('cloudflare-preview-0.5.3-0.2.2: PASS');

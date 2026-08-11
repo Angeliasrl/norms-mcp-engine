@@ -4,7 +4,7 @@ import { once } from 'node:events';
 const baseUrl = 'http://127.0.0.1:8787';
 const wrangler = spawn(
   process.execPath,
-  ['node_modules/wrangler/bin/wrangler.js', 'dev', '--local', '--ip', '127.0.0.1', '--port', '8787'],
+  ['node_modules/wrangler/bin/wrangler.js', 'dev', '--local', '--config', 'test/wrangler.cloudflare-worker-local.jsonc', '--ip', '127.0.0.1', '--port', '8787'],
   { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NO_COLOR: '1' } },
 );
 

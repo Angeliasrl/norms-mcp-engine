@@ -6,11 +6,14 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "durable_objects": {
-    "bindings": [{"name": "PDF_UPLOAD_COORDINATOR", "class_name": "PdfUploadDurableObject"}]
+    "bindings": [
+      {"name": "PDF_UPLOAD_COORDINATOR", "class_name": "PdfUploadDurableObject"},
+      {"name": "NORMS_RESOLVER", "class_name": "NormsResolverContainer"}
+    ]
   },
   "migrations": [{
     "tag": "pdf-upload-durable-object-rpc-test-v1",
-    "new_sqlite_classes": ["PdfUploadDurableObject"]
+    "new_sqlite_classes": ["PdfUploadDurableObject", "NormsResolverContainer"]
   }],
   "r2_buckets": [{"binding": "PDF_UPLOADS", "bucket_name": "norms-pdf-upload-durable-object-rpc-test"}],
   "vars": {

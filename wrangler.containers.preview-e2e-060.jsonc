@@ -1,0 +1,25 @@
+// PREVIEW E2E 0.6.0 (round §8.1) — config ISOLATA. workers.dev only, nessuna
+// route, nessun custom domain, DO namespace dedicato al worker di preview.
+// Image a digest esplicito (da riempire con l'attestazione CI). Da eliminare
+// a fine round insieme al worker, al container e all'image.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "norms-mcp-e2e-preview",
+  "main": "worker/preview-e2e-060.mjs",
+  "compatibility_date": "2026-08-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "containers": [{
+    "name": "norms-resolver-e2e-preview",
+    "class_name": "NormsResolverContainerPreview",
+    "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver-e2e-preview@sha256:DIGEST_TBD",
+    "max_instances": 1,
+    "instance_type": "basic"
+  }],
+  "durable_objects": {"bindings": [{"name": "NORMS_RESOLVER", "class_name": "NormsResolverContainerPreview"}]},
+  "migrations": [{"tag": "resolver-container-preview-e2e-v1", "new_sqlite_classes": ["NormsResolverContainerPreview"]}],
+  "services": [{"binding": "RESOLVER_PREVIEW", "service": "norms-resolver-v1-e2e-preview"}],
+  "vars": {"ENVIRONMENT": "preview", "MCP_REQUEST_TIMEOUT_MS": "60000"},
+  "observability": {"enabled": true, "head_sampling_rate": 0.01}
+}

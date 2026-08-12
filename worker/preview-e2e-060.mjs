@@ -15,16 +15,14 @@ export class NormsResolverContainerPreview extends NormsResolverContainer {
     // all'allowlist ufficiale (che resta invariata); l'instradamento reale passa
     // dal service binding qui sotto, mai da produzione.
     this.allowedHosts = [...(this.allowedHosts ?? []), RESOLVER_PREVIEW_HOST];
-    this.envVars = { ...this.envVars, NORMS_RESOLVER_URL: `https://${RESOLVER_PREVIEW_HOST}` };
-    // DELTA DI PREVIEW DICHIARATO: con enableInternet=false l'interception
-    // riscrive il DNS del container su indirizzi ULA privati (fd00::/8) e la
-    // guardia anti-SSRF del service (validate_public_url, che risolve il DNS
-    // in proprio) rifiuta correttamente ogni destinazione -> in-cloud tutto
-    // esce fail-closed tipizzato. Per esercitare gli esiti live del round
-    // 8.1 la preview abilita internet MANTENENDO interceptHttps+allowedHosts;
-    // le allowlist del service (acquisition-policy, validate_acquisition_url)
-    // restano intatte e vincolanti in codice. Solo preview, mai produzione.
-    this.enableInternet = true;
+    // NORMS_CF_EGRESS_ULA_PREFIX: prefisso ULA dell'egress-proxy Cloudflare,
+    // campionato dal runtime (sampler) e pinnato nelle vars del worker; la
+    // guardia del service lo accetta SOLO per host già in domain allowlist.
+    this.envVars = {
+      ...this.envVars,
+      NORMS_RESOLVER_URL: `https://${RESOLVER_PREVIEW_HOST}`,
+      ...(env.NORMS_CF_EGRESS_ULA_PREFIX ? { NORMS_CF_EGRESS_ULA_PREFIX: env.NORMS_CF_EGRESS_ULA_PREFIX } : {}),
+    };
   }
 }
 

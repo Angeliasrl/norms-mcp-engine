@@ -36,7 +36,28 @@ export class NormsResolverContainer extends Container {
     NORMS_RESOLVER_EVIDENCE_DIR: '/var/lib/norms/evidence',
     SSL_CERT_FILE: '/etc/cloudflare/certs/cloudflare-containers-ca.crt',
   };
+
+  constructor(ctx, env) {
+    super(ctx, env);
+    // Terza gamba (0.6.0): il canale verso norms-resolver-v1 e il prefisso ULA
+    // dell'egress-proxy Cloudflare arrivano dalle vars del worker; senza vars
+    // il container resta identico a prima (guardia strict, nessun canale).
+    if (env.NORMS_RESOLVER_URL) {
+      this.allowedHosts = [...this.allowedHosts, new URL(env.NORMS_RESOLVER_URL).hostname];
+      this.envVars = { ...this.envVars, NORMS_RESOLVER_URL: env.NORMS_RESOLVER_URL };
+    }
+    if (env.NORMS_CF_EGRESS_ULA_PREFIX) {
+      this.envVars = { ...this.envVars, NORMS_CF_EGRESS_ULA_PREFIX: env.NORMS_CF_EGRESS_ULA_PREFIX };
+    }
+  }
 }
+
+// Il fetch worker->worker via workers.dev dello stesso account è bloccato
+// (errore 1042): l'egress intercettato verso norms-resolver-v1 viaggia sul
+// service binding dedicato.
+NormsResolverContainer.outboundByHost = {
+  'norms-resolver-v1.friva1947.workers.dev': (request, env) => env.NORMS_DB_RESOLVER.fetch(request),
+};
 
 function requestTimeoutMs(env) {
   const configured = Number(env?.MCP_REQUEST_TIMEOUT_MS ?? DEFAULT_REQUEST_TIMEOUT_MS);

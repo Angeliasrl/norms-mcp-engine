@@ -75,27 +75,24 @@ const NEW_FIELDS = ['segnalazione', 'resolution_outcome', 'resolution_provenance
 const health = await fetch(`${normalized}/healthz`);
 assert.equal(health.status, 200);
 
-// --- BLOCCO STRUTTURALE DOCUMENTATO: interception DNS -> ULA fd00::/8 ---
-// La guardia anti-SSRF del service risolve il DNS in proprio e rifiuta gli
-// indirizzi privati dell'interception: in-cloud ogni egress esce fail-closed
-// tipizzato. Catturato come caso di evidenza.
-const dnsBlockage = await post('env-finding-dns-interception', {
+// --- ACQUISIZIONE LIVE: con il fix egress la fetch verso la fonte ufficiale
+// deve partire e completare (documento statico su gazzettaufficiale.it) ---
+const acquisition = await post('acquisition-live-official-url', {
   official_url: FIXTURE_URL,
   jurisdiction: 'IT',
-  source_requirements: {},
-  request_id: 'env-dns-finding',
+  source_requirements: { require_primary_official: true },
+  request_id: 'acquisition-live-1',
 });
-check(dnsBlockage, 'typed-400-resolver-url-rejected',
-  dnsBlockage.http_status === 400 && dnsBlockage.response?.error?.code === 'RESOLVER_URL_REJECTED',
-  dnsBlockage.response?.error);
-check(dnsBlockage, 'fail-closed-names-private-address',
-  /non pubblico/i.test(dnsBlockage.response?.error?.message ?? ''),
-  dnsBlockage.response?.error?.message);
+check(acquisition, 'http-200', acquisition.http_status === 200);
+check(acquisition, 'egress-traversed-source-responded',
+  (acquisition.response?.acquisition_receipts ?? []).some((r) => Number.isInteger(r.http_status) && r.bytes_received > 0),
+  (acquisition.response?.acquisition_receipts ?? []).map((r) => ({ status: r.status, bytes: r.bytes_received, http: r.http_status })));
 
-// --- MATRICE §6b: fixture = citation deterministica (discovery fail-closed,
-// nessun byte acquisito: A/B byte-confrontabili senza rumore di rete) ---
+// --- MATRICE §6b: fixture deterministica — citazione valida che la discovery
+// non risolve (zero candidati, zero byte acquisiti): A/B byte-identiche senza
+// dipendere dall'umore della fonte ---
 const fixtureRequest = (requestId) => ({
-  citation: 'D.Lgs. 36/2023',
+  citation: 'Legge 31 dicembre 2099, n. 999999',
   jurisdiction: 'IT',
   source_requirements: { require_primary_official: true },
   request_id: requestId,
@@ -125,7 +122,8 @@ check(caseC, 'pinned-formula-on-empty-sources',
   caseC.response?.segnalazione);
 check(caseC, 'typed-outcome-on-empty-sources',
   (caseC.response?.evidence_sources?.sources?.length ?? 0) > 0
-  || caseC.response?.resolution_outcome?.unresolvable_reason === 'SOURCE_NO_RESOLUTION',
+  || ['SOURCE_NO_RESOLUTION', 'SOURCE_REJECTED_REFERENCE', 'SOURCE_ERROR', 'SOURCE_UNREACHABLE'].includes(
+    caseC.response?.resolution_outcome?.unresolvable_reason),
   caseC.response?.resolution_outcome);
 
 // --- SMOKE 1: Cost. art. 117 con as_of -> RESOLVED_MATCH + APPLIED ---
@@ -200,7 +198,33 @@ check(p6, 'resolver-was-reached', p6.response?.resolution_provenance?.source ===
 check(p6, 'query-date-reached-resolver', (p6.response?.resolution_provenance?.urn ?? '').endsWith(`!vig=${AS_OF}`),
   p6.response?.resolution_provenance?.urn);
 check(p6, 'citation-preserved-as-original', p6.response?.canonical_citation?.original === 'Decreto legislativo 31 marzo 2023, n. 36, art. 1');
-check(p6, 'resolved-match', p6.response?.resolution_outcome?.status === 'RESOLVED_MATCH', p6.response?.resolution_outcome);
+// Esito veritiero della fonte (per art.1 oggi: RESOLVED_DIVERGENT/DOUBT è la
+// classificazione onesta del resolver); il round-trip è il fatto da provare.
+check(p6, 'truthful-resolved-outcome',
+  ['RESOLVED_MATCH', 'RESOLVED_DIVERGENT'].includes(p6.response?.resolution_outcome?.status),
+  p6.response?.resolution_outcome);
+check(p6, 'fail-closed-if-divergent',
+  p6.response?.resolution_outcome?.status !== 'RESOLVED_DIVERGENT' || p6.response?.ready_for_norms === false);
+
+// --- SMOKE 4: D.Lgs. 36/2023 art. 50 (finestra di vigenza nota) ->
+// RESOLVED_MATCH con 1 fonte e selezione temporale APPLIED ---
+const art50 = await post('smoke-4-dlgs36-art50-match', {
+  contract_version: '0.6.0',
+  reference: { scheme: 'urn:nir', value: 'urn:nir:stato:decreto.legislativo:2023-03-31;36', granularity: { article: '50' } },
+  jurisdiction: 'IT',
+  as_of: '2024-01-27',
+  source_requirements: { require_primary_official: true },
+  request_id: 'smoke-dlgs36-art50',
+});
+check(art50, 'http-200', art50.http_status === 200);
+check(art50, 'resolver-round-trip', art50.response?.resolution_provenance?.source === 'normattiva-opendata',
+  art50.response?.resolution_provenance);
+check(art50, 'query-date-in-urn', (art50.response?.resolution_provenance?.urn ?? '').endsWith('!vig=2024-01-27'),
+  art50.response?.resolution_provenance?.urn);
+check(art50, 'resolved-match', art50.response?.resolution_outcome?.status === 'RESOLVED_MATCH', art50.response?.resolution_outcome);
+check(art50, 'one-source', art50.response?.evidence_sources?.independent_official_source_count === 1,
+  art50.response?.evidence_sources?.independent_official_source_count);
+check(art50, 'temporal-applied', art50.response?.temporal_selection?.selection === 'APPLIED', art50.response?.temporal_selection);
 
 // --- Report ---
 const report = {

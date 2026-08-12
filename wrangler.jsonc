@@ -19,7 +19,7 @@
     {
       "name": "norms-resolver-prod",
       "class_name": "NormsResolverContainer",
-      "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver@sha256:53b7e3dd47ac93cc67746ef33917631fb05ddfeb2fb3dd760f20df4902caca81",
+      "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver@sha256:06141d67609c66ab6baefa4269dff1264b539b94a5c66efd1b20f85608baf0bc",
       "max_instances": 1,
       "instance_type": "basic"
     }
@@ -42,9 +42,14 @@
       "bucket_name": "norms-pdf-uploads-prod"
     }
   ],
+  "services": [
+    { "binding": "NORMS_DB_RESOLVER", "service": "norms-resolver-v1" }
+  ],
   "vars": {
     "ENVIRONMENT": "production",
-    "MCP_REQUEST_TIMEOUT_MS": "60000"
+    "MCP_REQUEST_TIMEOUT_MS": "60000",
+    "NORMS_RESOLVER_URL": "https://norms-resolver-v1.friva1947.workers.dev",
+    "NORMS_CF_EGRESS_ULA_PREFIX": "fd00::119:1/128"
   },
   "observability": {
     "enabled": true,

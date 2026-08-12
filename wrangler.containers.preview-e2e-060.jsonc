@@ -13,13 +13,13 @@
   "containers": [{
     "name": "norms-resolver-e2e-preview",
     "class_name": "NormsResolverContainerPreview",
-    "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver-e2e-preview@sha256:72e288361f1eb582a10a1735ad6b76024d00254c791a7acbc14f3ab6ab7e04c5",
+    "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver-e2e-preview@sha256:4084713bc754469ef8f634c2f8abe78b4e434a11a1bc8621e8a40abb53120cfb",
     "max_instances": 1,
     "instance_type": "basic"
   }],
   "durable_objects": {"bindings": [{"name": "NORMS_RESOLVER", "class_name": "NormsResolverContainerPreview"}]},
   "migrations": [{"tag": "resolver-container-preview-e2e-v1", "new_sqlite_classes": ["NormsResolverContainerPreview"]}],
   "services": [{"binding": "RESOLVER_PREVIEW", "service": "norms-resolver-v1-e2e-preview"}],
-  "vars": {"ENVIRONMENT": "preview", "MCP_REQUEST_TIMEOUT_MS": "60000"},
+  "vars": {"ENVIRONMENT": "preview", "MCP_REQUEST_TIMEOUT_MS": "60000", "NORMS_CF_EGRESS_ULA_PREFIX": "fd00::119:1/128"},
   "observability": {"enabled": true, "head_sampling_rate": 0.01}
 }

@@ -49,7 +49,16 @@ function check(record, name, condition, detail) {
 
 // Normalizzazione degli elementi non deterministici (stessa proiezione del
 // test C1: timestamp, durate, observability; il contenuto semantico resta).
+function sortKeysDeep(value) {
+  if (Array.isArray(value)) return value.map(sortKeysDeep);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, sortKeysDeep(value[key])]));
+  }
+  return value;
+}
+
 function normalizeForIdentity(result) {
+  if (result === null || typeof result !== 'object') return JSON.stringify(result);
   const out = structuredClone(result);
   delete out.metrics;
   for (const receipt of out.acquisition_receipts ?? []) { delete receipt.acquired_at_utc; delete receipt.duration_ms; }
@@ -57,7 +66,7 @@ function normalizeForIdentity(result) {
   delete pkg.observability;
   for (const receipt of pkg.acquisition_receipts ?? []) { delete receipt.acquired_at_utc; delete receipt.duration_ms; }
   for (const snapshot of pkg.snapshot_references ?? []) { delete snapshot.created; }
-  return JSON.stringify(out, Object.keys(out).sort());
+  return JSON.stringify(sortKeysDeep(out));
 }
 
 const NEW_FIELDS = ['segnalazione', 'resolution_outcome', 'resolution_provenance', 'temporal_selection', 'completeness', 'candidate_blockers'];
@@ -66,9 +75,27 @@ const NEW_FIELDS = ['segnalazione', 'resolution_outcome', 'resolution_provenance
 const health = await fetch(`${normalized}/healthz`);
 assert.equal(health.status, 200);
 
-// --- MATRICE §6b: fixture = official_url statico, stessa request nei tre casi ---
-const fixtureRequest = (requestId) => ({
+// --- BLOCCO STRUTTURALE DOCUMENTATO: interception DNS -> ULA fd00::/8 ---
+// La guardia anti-SSRF del service risolve il DNS in proprio e rifiuta gli
+// indirizzi privati dell'interception: in-cloud ogni egress esce fail-closed
+// tipizzato. Catturato come caso di evidenza.
+const dnsBlockage = await post('env-finding-dns-interception', {
   official_url: FIXTURE_URL,
+  jurisdiction: 'IT',
+  source_requirements: {},
+  request_id: 'env-dns-finding',
+});
+check(dnsBlockage, 'typed-400-resolver-url-rejected',
+  dnsBlockage.http_status === 400 && dnsBlockage.response?.error?.code === 'RESOLVER_URL_REJECTED',
+  dnsBlockage.response?.error);
+check(dnsBlockage, 'fail-closed-names-private-address',
+  /non pubblico/i.test(dnsBlockage.response?.error?.message ?? ''),
+  dnsBlockage.response?.error?.message);
+
+// --- MATRICE §6b: fixture = citation deterministica (discovery fail-closed,
+// nessun byte acquisito: A/B byte-confrontabili senza rumore di rete) ---
+const fixtureRequest = (requestId) => ({
+  citation: 'D.Lgs. 36/2023',
   jurisdiction: 'IT',
   source_requirements: { require_primary_official: true },
   request_id: requestId,
@@ -92,6 +119,14 @@ check(caseC, 'http-200', caseC.http_status === 200);
 check(caseC, 'schema-060', caseC.response?.schema_version === 'norms-resolver-service/0.6.0');
 check(caseC, 'all-060-fields-present', NEW_FIELDS.every((key) => key in (caseC.response ?? {})));
 check(caseC, 'segnalazione-non-empty', typeof caseC.response?.segnalazione === 'string' && caseC.response.segnalazione.length > 0);
+check(caseC, 'pinned-formula-on-empty-sources',
+  (caseC.response?.evidence_sources?.sources?.length ?? 0) > 0
+  || (caseC.response?.segnalazione ?? '').startsWith('Il resolver non ha individuato candidati'),
+  caseC.response?.segnalazione);
+check(caseC, 'typed-outcome-on-empty-sources',
+  (caseC.response?.evidence_sources?.sources?.length ?? 0) > 0
+  || caseC.response?.resolution_outcome?.unresolvable_reason === 'SOURCE_NO_RESOLUTION',
+  caseC.response?.resolution_outcome);
 
 // --- SMOKE 1: Cost. art. 117 con as_of -> RESOLVED_MATCH + APPLIED ---
 const cost117 = await post('smoke-1-costituzione-117', {

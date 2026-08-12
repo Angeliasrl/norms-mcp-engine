@@ -13,7 +13,7 @@
   "containers": [{
     "name": "norms-resolver-e2e-preview",
     "class_name": "NormsResolverContainerPreview",
-    "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver-e2e-preview@sha256:DIGEST_TBD",
+    "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver-e2e-preview@sha256:72e288361f1eb582a10a1735ad6b76024d00254c791a7acbc14f3ab6ab7e04c5",
     "max_instances": 1,
     "instance_type": "basic"
   }],

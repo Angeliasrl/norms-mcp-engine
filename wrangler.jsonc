@@ -19,7 +19,7 @@
     {
       "name": "norms-resolver-prod",
       "class_name": "NormsResolverContainer",
-      "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver@sha256:06141d67609c66ab6baefa4269dff1264b539b94a5c66efd1b20f85608baf0bc",
+      "image": "registry.cloudflare.com/db9156a9c16c01ee4341b429b2dd448d/norms-resolver@sha256:eeec925c33a50bf3066ce6bda66ffd6c3d7f39585a97afd10c92b676ad6e1028",
       "max_instances": 1,
       "instance_type": "basic"
     }

@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { assertProductionConfigFreeze } from './production-config-freeze.mjs';
 
 const config = JSON.parse(await readFile(new URL('../wrangler.preview-0.5.3-0.2.2.jsonc', import.meta.url), 'utf8'));
 const lock = JSON.parse(await readFile(new URL('../preview/cloudflare-preview-image-lock-0.5.3-0.2.2.json', import.meta.url), 'utf8'));
-const production = await readFile(new URL('../wrangler.jsonc', import.meta.url));
 
 assert.equal(config.name, 'norms-mcp-preview-0-2-2-pipeline-0-5-3');
 assert.equal(config.workers_dev, true);
@@ -18,5 +17,5 @@ assert.equal(lock.size_bytes, 236076302);
 assert.equal(config.r2_buckets[0].bucket_name, 'norms-pdf-uploads-preview-0-2-2-pipeline-0-5-3');
 assert.equal(config.vars.PDF_ATTACHMENT_PROBE_ENABLED, 'true');
 assert(!JSON.stringify(config).includes('PDF_UPLOAD_CAPABILITY_HMAC_KEY'));
-assert.equal(createHash('sha256').update(production).digest('hex'), '4840e9e363007bcbdd7ab886f564223d9a0bd3b6ed7307e63de9a48b0bfac0bd');
+await assertProductionConfigFreeze();
 console.log('cloudflare-preview-0.5.3-0.2.2: PASS');

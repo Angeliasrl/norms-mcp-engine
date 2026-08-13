@@ -32,6 +32,7 @@ jobs:
       - name: Preview configuration and digest-pinned dry-run
         if: ${{ matrix.node != '20' }}
         run: |
+          node test/production-config-freeze.mjs
           node test/cloudflare-preview-0.5.3-0.2.2.mjs
           node_modules/.bin/wrangler types --config wrangler.preview-0.5.3-0.2.2.jsonc --path "$RUNNER_TEMP/preview-worker-configuration.d.ts"
           node_modules/.bin/wrangler deploy --dry-run --config wrangler.preview-0.5.3-0.2.2.jsonc --outdir "$RUNNER_TEMP/preview-dry-run"

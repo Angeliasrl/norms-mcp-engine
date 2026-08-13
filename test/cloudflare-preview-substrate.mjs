@@ -1,13 +1,11 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { assertProductionConfigFreeze } from './production-config-freeze.mjs';
 
 const configPath = new URL('../wrangler.preview-0.5.1-0.2.1.jsonc', import.meta.url);
 const lockPath = new URL('../preview/cloudflare-preview-image-lock-0.5.1-0.2.1.json', import.meta.url);
-const productionPath = new URL('../wrangler.jsonc', import.meta.url);
 const config = JSON.parse(await readFile(configPath, 'utf8'));
 const lock = JSON.parse(await readFile(lockPath, 'utf8'));
-const production = await readFile(productionPath);
 
 assert.equal(config.name, 'norms-mcp-preview-0-2-1-pipeline-0-5-1');
 assert.equal(config.workers_dev, true);
@@ -45,9 +43,6 @@ assert.equal(config.vars.ENVIRONMENT, 'preview');
 assert.equal(config.vars.PDF_ATTACHMENT_PROBE_ENABLED, 'true');
 assert(!JSON.stringify(config).includes('PDF_UPLOAD_CAPABILITY_HMAC_KEY'));
 assert(config.migrations[0].new_sqlite_classes.includes('PdfUploadDurableObject'));
-// Freeze della wrangler.jsonc di produzione. Ri-baselinato con l'attivazione
-// §7 (RATIFICA_ATTIVAZIONE_0.6.0_S7_01): image 0.6.0-fix, service binding
-// NORMS_DB_RESOLVER, vars canale+ULA. Baseline 0.5.4 precedente:
-// 4840e9e363007bcbdd7ab886f564223d9a0bd3b6ed7307e63de9a48b0bfac0bd
-assert.equal(createHash('sha256').update(production).digest('hex'), 'edccc1de64c95503505b2451c397a70e7c99be8b096335a658b7ff57aa6d4685');
+// Freeze della wrangler.jsonc di produzione — hash unico in production-config-freeze.mjs.
+await assertProductionConfigFreeze();
 console.log('cloudflare-preview-substrate: PASS');

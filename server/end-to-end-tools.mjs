@@ -5,7 +5,10 @@ import { ResolverError } from './resolver-client.mjs';
 
 const civilDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const sourceRequirements = z.object({ minimum_independent_official_sources: z.number().int().min(1).max(4).optional(), require_primary_official: z.boolean().optional() }).strict();
-const locator = z.object({ citation: z.string().min(1).max(2048).optional(), official_url: z.string().url().max(4096).optional(), jurisdiction: z.string().regex(/^[A-Z]{2,8}$/), as_of: civilDate.optional(), source_requirements: sourceRequirements, request_id: z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/) }).strict().superRefine((v, ctx) => { if ((v.citation === undefined) === (v.official_url === undefined)) ctx.addIssue({ code: 'custom', path: ['citation'], message: 'exactly one of citation or official_url is required' }); });
+// §7 (RATIFICA_ATTIVAZIONE_0.6.0_S7_01): il locator accetta la terza via
+// `reference` (URN-addressed), ammessa SOLO con contract_version "0.6.0".
+const referenceSchema = z.object({ scheme: z.string().min(1).max(64), value: z.string().min(1).max(2048), granularity: z.object({ article: z.union([z.string(), z.number().int()]).optional(), comma: z.union([z.string(), z.number().int()]).optional() }).strict().optional() }).strict();
+const locator = z.object({ citation: z.string().min(1).max(2048).optional(), official_url: z.string().url().max(4096).optional(), reference: referenceSchema.optional(), contract_version: z.enum(['0.5.4', '0.6.0']).optional(), jurisdiction: z.string().regex(/^[A-Z]{2,8}$/), as_of: civilDate.optional(), source_requirements: sourceRequirements, request_id: z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/) }).strict().superRefine((v, ctx) => { const present = [v.citation, v.official_url, v.reference].filter((x) => x !== undefined).length; if (present !== 1) ctx.addIssue({ code: 'custom', path: ['citation'], message: 'exactly one of citation, official_url or reference is required' }); if (v.reference !== undefined && v.contract_version !== '0.6.0') ctx.addIssue({ code: 'custom', path: ['reference'], message: 'reference requires contract_version "0.6.0"' }); });
 const auditInput = locator.extend({
   context: publicInputSchema.shape.context,
   reliance_purpose: publicInputSchema.shape.reliance_purpose,
@@ -27,7 +30,18 @@ function packageHashProjection(value) {
 }
 async function sha256Text(value) { const bytes = new TextEncoder().encode(value); return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((b) => b.toString(16).padStart(2, '0')).join(''); }
 function fail(code, resolution = null) { return { evidence_resolution: resolution, normative_assessment: null, blocking: [code], unknown: [], unexamined: true, limitations: ['NORMS_CORE_NOT_CALLED'] }; }
-function resolutionView(r) { return { canonical_citation: r.canonical_citation, sources: r.evidence_sources, matching: r.matching, corroboration: r.corroboration, temporal_evidence: r.temporal_evidence, blocking: r.blocking, unknown: r.unknown, unexamined: r.unexamined, audit_level: r.audit_level, ready_for_norms: r.ready_for_norms, evidence_package_hash: r.package_sha256, resolution_fingerprint: r.resolution_fingerprint }; }
+// §7: la resolutionView proietta i campi nuovi 0.6.0 QUANDO presenti (ramo
+// reference/0.6.0). Sono assenti nelle risposte legacy → i consumatori legacy
+// vedono una vista identica a prima (invariante C1 preservata a valle).
+function resolutionView(r) {
+  const view = { canonical_citation: r.canonical_citation, sources: r.evidence_sources, matching: r.matching, corroboration: r.corroboration, temporal_evidence: r.temporal_evidence, blocking: r.blocking, unknown: r.unknown, unexamined: r.unexamined, audit_level: r.audit_level, ready_for_norms: r.ready_for_norms, evidence_package_hash: r.package_sha256, resolution_fingerprint: r.resolution_fingerprint };
+  for (const key of ['segnalazione', 'resolution_outcome', 'publication_variants', 'resolution_provenance', 'temporal_selection', 'completeness', 'candidate_blockers']) {
+    if (r[key] !== undefined) view[key] = r[key];
+  }
+  return view;
+}
+
+export { locator as resolveLocatorSchema };
 
 export async function resolveNormativeEvidence(args, resolverClient) {
   try { return resolutionView(await resolverClient.resolve(args)); }
@@ -36,7 +50,7 @@ export async function resolveNormativeEvidence(args, resolverClient) {
 
 export async function auditNormativeReliance(args, resolverClient, assess = assessStructuredRequest) {
   let resolved;
-  try { resolved = await resolverClient.resolve(Object.fromEntries(Object.entries(args).filter(([k]) => ['citation', 'official_url', 'jurisdiction', 'as_of', 'source_requirements', 'request_id'].includes(k)))); }
+  try { resolved = await resolverClient.resolve(Object.fromEntries(Object.entries(args).filter(([k]) => ['citation', 'official_url', 'reference', 'contract_version', 'jurisdiction', 'as_of', 'source_requirements', 'request_id'].includes(k)))); }
   catch (error) { return fail(error instanceof ResolverError ? error.code : 'RESOLVER_UNAVAILABLE'); }
   const view = resolutionView(resolved);
   if (!resolved.ready_for_norms || resolved.audit_level !== 'PUBLIC_RESOLVED') return fail('RESOLUTION_NOT_PUBLIC_RESOLVED', view);

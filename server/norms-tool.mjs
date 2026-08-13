@@ -170,7 +170,7 @@ export function registerNormsTool(server, options = {}) {
 
 export function createNormsMcpServer(options = {}) {
   const server = new McpServer(
-    { name: 'norms-structured-applicability', version: '0.2.2' },
+    { name: 'norms-structured-applicability', version: '0.3.0' },
     { instructions: SERVER_INSTRUCTIONS },
   );
 

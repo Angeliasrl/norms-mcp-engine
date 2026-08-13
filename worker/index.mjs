@@ -79,7 +79,7 @@ const pdfUploadBindingsPresent = (env) => Boolean(
 );
 
 const createWorkerMcpServer = (env) => registerNormsTool(new McpServer(
-  { name: 'norms-structured-applicability', version: '0.2.2' },
+  { name: 'norms-structured-applicability', version: '0.3.0' },
   { instructions: SERVER_INSTRUCTIONS },
 ), {
   resolverClient: resolverClientFromEnv(env),

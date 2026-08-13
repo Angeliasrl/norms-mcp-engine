@@ -45,5 +45,9 @@ assert.equal(config.vars.ENVIRONMENT, 'preview');
 assert.equal(config.vars.PDF_ATTACHMENT_PROBE_ENABLED, 'true');
 assert(!JSON.stringify(config).includes('PDF_UPLOAD_CAPABILITY_HMAC_KEY'));
 assert(config.migrations[0].new_sqlite_classes.includes('PdfUploadDurableObject'));
-assert.equal(createHash('sha256').update(production).digest('hex'), '4840e9e363007bcbdd7ab886f564223d9a0bd3b6ed7307e63de9a48b0bfac0bd');
+// Freeze della wrangler.jsonc di produzione. Ri-baselinato con l'attivazione
+// §7 (RATIFICA_ATTIVAZIONE_0.6.0_S7_01): image 0.6.0-fix, service binding
+// NORMS_DB_RESOLVER, vars canale+ULA. Baseline 0.5.4 precedente:
+// 4840e9e363007bcbdd7ab886f564223d9a0bd3b6ed7307e63de9a48b0bfac0bd
+assert.equal(createHash('sha256').update(production).digest('hex'), 'edccc1de64c95503505b2451c397a70e7c99be8b096335a658b7ff57aa6d4685');
 console.log('cloudflare-preview-substrate: PASS');

@@ -198,17 +198,21 @@ const trustedEvaluationSchema = z.object({
 const purposeOneOf = [
   {
     title: 'Current operational assessment',
+    description: 'Use when reliance_purpose is CURRENT_OPERATIONAL; as_of is required.',
     properties: { reliance_purpose: { const: 'CURRENT_OPERATIONAL' } },
-    required: ['as_of'],
+    required: ['reliance_purpose', 'as_of'],
   },
   {
     title: 'Historical assessment',
+    description: 'Use when reliance_purpose is HISTORICAL_AS_OF; as_of is required.',
     properties: { reliance_purpose: { const: 'HISTORICAL_AS_OF' } },
-    required: ['as_of'],
+    required: ['reliance_purpose', 'as_of'],
   },
   {
     title: 'Comparative analysis',
+    description: 'Use when reliance_purpose is COMPARATIVE_ANALYSIS; as_of must be absent.',
     properties: { reliance_purpose: { const: 'COMPARATIVE_ANALYSIS' } },
+    required: ['reliance_purpose'],
     not: { required: ['as_of'] },
   },
 ];
@@ -229,7 +233,7 @@ export const publicInputSchema = z.object({
     ctx.addIssue({ code: 'custom', path: ['as_of'], message: 'must be absent for COMPARATIVE_ANALYSIS' });
   }
 }).meta({
-  description: 'Canonical public input contract for assess_normative_reliance.',
+  description: 'Canonical public input contract for assess_normative_reliance. reliance_purpose is always required. as_of is required for CURRENT_OPERATIONAL and HISTORICAL_AS_OF, and must be absent for COMPARATIVE_ANALYSIS.',
   oneOf: purposeOneOf,
 });
 

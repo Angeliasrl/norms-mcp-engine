@@ -26,7 +26,7 @@ function packageHashProjection(value) {
   return projected;
 }
 async function sha256Text(value) { const bytes = new TextEncoder().encode(value); return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((b) => b.toString(16).padStart(2, '0')).join(''); }
-function fail(code, resolution = null) { return { evidence_resolution: resolution, normative_assessment: null, blocking: [code], unknown: [], unexamined: true, limitations: ['NORMS_CORE_NOT_CALLED'] }; }
+function fail(code, resolution = null) { return { evidence_resolution: resolution, normative_assessment: null, blocking: [code], unknown: [], unexamined: false, limitations: ['NORMS_CORE_NOT_CALLED'] }; }
 function resolutionView(r) { return { canonical_citation: r.canonical_citation, sources: r.evidence_sources, matching: r.matching, corroboration: r.corroboration, temporal_evidence: r.temporal_evidence, blocking: r.blocking, unknown: r.unknown, unexamined: r.unexamined, audit_level: r.audit_level, ready_for_norms: r.ready_for_norms, evidence_package_hash: r.package_sha256, resolution_fingerprint: r.resolution_fingerprint }; }
 
 export async function resolveNormativeEvidence(args, resolverClient) {
@@ -47,7 +47,11 @@ export async function auditNormativeReliance(args, resolverClient, assess = asse
   const payload = { entry: structuredClone(args.entry_assertions), context: structuredClone(args.context), reliance_purpose: args.reliance_purpose, ...(args.as_of ? { as_of: args.as_of } : {}), ...(args.trusted_external_evaluations ? { trusted_external_evaluations: structuredClone(args.trusted_external_evaluations) } : {}) };
   const validated = publicInputSchema.safeParse(payload); if (!validated.success) return fail('NORMS_PAYLOAD_INVALID', view);
   const assessment = assess(validated.data);
-  return { evidence_resolution: view, normative_assessment: assessment, blocking: [...view.blocking, ...assessment.purpose_assessment.blocking], unknown: [...view.unknown, ...assessment.purpose_assessment.unknown], unexamined: Boolean(view.unexamined?.length || assessment.purpose_assessment.unexamined), limitations: ['ADAPTER_MAPPING_REQUIRES_EXPLICIT_ENTRY_ASSERTIONS'] };
+  const blocking = [...view.blocking, ...assessment.purpose_assessment.blocking];
+  const unknown = [...view.unknown, ...assessment.purpose_assessment.unknown];
+  const resolverUnexamined = Array.isArray(view.unexamined) ? view.unexamined.length > 0 : Boolean(view.unexamined);
+  const unexamined = blocking.length === 0 && Boolean(unknown.length || resolverUnexamined || assessment.purpose_assessment.unexamined);
+  return { evidence_resolution: view, normative_assessment: assessment, blocking, unknown, unexamined, limitations: ['ADAPTER_MAPPING_REQUIRES_EXPLICIT_ENTRY_ASSERTIONS'] };
 }
 
 export function registerEndToEndTools(server, { resolverClient, assess = assessStructuredRequest }) {
